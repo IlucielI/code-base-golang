@@ -1,0 +1,121 @@
+openapi: 3.0.3
+info:
+  title: Go Core API Boilerplate
+  version: 1.0.0
+  description: |
+    Production-grade Go REST API boilerplate built with Gin, GORM, PostgreSQL, Redis, and S3.
+    Features:
+    - Clean Architecture with strict separation of concerns
+    - Infrastructure adapters (PostgreSQL, Redis, S3/MinIO)
+    - Comprehensive Health & Diagnostics checks
+    - HTTP Middlewares (JWT Auth, HTTP Basic Auth, Client Metadata, Structured Logger, Panic Recovery)
+    - Unified API Response Envelope & Error Handling
+
+servers:
+  - url: /
+    description: Primary API Server
+
+paths:
+  /v1/health:
+    get:
+      summary: Health & Diagnostics Check
+      description: Returns service uptime, application version, git commit hash, and connection status for PostgreSQL, Redis, and S3.
+      tags:
+        - System
+      responses:
+        '200':
+          description: Health check diagnostics payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  schemas:
+    HealthServices:
+      type: object
+      properties:
+        database:
+          type: string
+          example: connected
+          enum: [connected, disconnected]
+        redis:
+          type: string
+          example: connected
+          enum: [connected, disconnected]
+        s3:
+          type: string
+          example: connected
+          enum: [connected, disconnected]
+      required:
+        - database
+        - redis
+        - s3
+
+    HealthData:
+      type: object
+      properties:
+        version:
+          type: string
+          example: 0.1.0
+        git_hash:
+          type: string
+          example: dev
+        uptime:
+          type: string
+          example: 1h23m45s
+        services:
+          $ref: '#/components/schemas/HealthServices'
+      required:
+        - version
+        - git_hash
+        - uptime
+        - services
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        code:
+          type: string
+          example: SUCCESS
+        message:
+          type: string
+          example: operation completed successfully
+        data:
+          $ref: '#/components/schemas/HealthData'
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-09-26T12:00:00Z'
+      required:
+        - status
+        - code
+        - message
+        - data
+        - timestamp
+
+    BaseResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: fail
+          enum: [success, fail, error]
+        code:
+          type: string
+          example: BAD_REQUEST
+        message:
+          type: string
+          example: invalid request payload
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-09-26T12:00:00Z'
+      required:
+        - status
+        - code
+        - message
+        - timestamp

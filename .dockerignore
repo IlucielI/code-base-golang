@@ -1,0 +1,36 @@
+# Version control & git
+.git
+.gitignore
+
+# Go binaries & build outputs
+bin/
+dist/
+*.exe
+*.out
+
+# Dependencies (Docker uses go.mod/go.sum cache inside Dockerfile.base)
+vendor/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editor & OS metadata
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test & coverage artifacts
+coverage.out
+coverage.html
+.tmp/
+tmp/
+*.log
+
+# Documentation & repository assets (OpenAPI in docs/ is kept for //go:embed)
+README.md
+LICENSE
+deployment/README.md

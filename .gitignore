@@ -1,0 +1,32 @@
+# Binaries & build outputs
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.out
+
+# Go dependencies (vendor directory created by 'go mod vendor')
+vendor/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editor & OS metadata
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Test & coverage artifacts
+coverage.out
+coverage.html
+.tmp/
+tmp/
+*.log

@@ -1,0 +1,16 @@
+# Route configuration for Go Core API
+# Maps HTTP endpoints directly to Server methods
+routes:
+  # Health check endpoint
+  - method: GET
+    path: /v1/health
+    handler: HealthCheck
+
+  # Documentation endpoints
+  - method: GET
+    path: /openapi.yaml
+    handler: OpenAPISpec
+
+  - method: GET
+    path: /docs
+    handler: APIDocs
