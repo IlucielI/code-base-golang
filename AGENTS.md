@@ -61,7 +61,7 @@ This document defines the architectural invariants, conventions, and workflows f
    - Push feature branch to origin: `git push -u origin <branch-name>`.
    - Open a PR to `main` using `gh pr create --base main --head <branch-name> --title "..." --body "..."`.
    - Verify `make test` and `make build` pass with zero regressions.
-   - **DO NOT AUTO-MERGE**: Leave the PR **OPEN** for USER review. The AI assistant must **NEVER** run `gh pr merge` autonomously; the user reviews and merges.
+   - **MERGE REQUIRES USER APPROVAL**: Leave the PR **OPEN** after creation. The AI assistant must **NEVER** run `gh pr merge` autonomously. The assistant is allowed to merge only after asking for and receiving explicit approval from the USER.
 
 ---
 
