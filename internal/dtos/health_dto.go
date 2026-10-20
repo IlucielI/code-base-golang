@@ -9,7 +9,7 @@ type HealthServices struct {
 	SMTP     string `json:"smtp,omitempty"`
 }
 
-// HealthData contains runtime health check details.
+// HealthData contains runtime health check details returned to the client.
 type HealthData struct {
 	Version  string         `json:"version"`
 	GitHash  string         `json:"git_hash"`

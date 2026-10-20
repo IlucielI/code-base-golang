@@ -150,6 +150,19 @@ func ValidateRoleListQuery(q *dtos.RoleListQuery) error {
 }
 ```
 
+### DTO Naming & Layering
+
+DTO structs follow two roles:
+
+- Input: `<Name>Request` (JSON body) or `<Name>Query` (query-string/list params; usually has `SetDefaults()`).
+- Output: `<Name>Data` for data returned to the client in the response envelope's `data` field (e.g. `APIResponse[HealthData]`). Nested sub-structs used only inside a `*Data` payload need no suffix.
+
+Which layer may touch DTOs:
+
+- `controllers` bind/validate `*Request`/`*Query` and return `*Data`.
+- `services` take `*Request`/`*Query` as input and build `*Data` from domain models.
+- `repositories` **never** import `internal/dtos` — they work with `internal/models` entities plus primitives or local filter types, so transport shapes never leak into persistence.
+
 ---
 
 ## Tech Stack

@@ -75,6 +75,14 @@ This document defines the architectural invariants, conventions, and workflows f
    - Test files append the suffix before `_test.go` (e.g. `recording_dto_test.go`, `base_model_test.go`).
    - Rationale: these layers hold many small per-entity files; the suffix keeps the editor's file list self-describing and prevents name collisions across layers (e.g. a `recording` DTO vs. a `recording` model).
    - **No suffix elsewhere.** Other packages name files by topic, not role — e.g. `internal/constants/` uses one file per topic/domain (`error.go`, `response.go`, `worker.go`, `<domain>.go`); do **not** create `*_constant.go` (it stutters with the package name). The same applies to `pkg/`, `adapters/`, etc.
+0a. **DTO Naming & Layering (MANDATORY)**:
+   - **Struct naming** — two roles only:
+     - Input payloads: `<Name>Request` for JSON bodies, `<Name>Query` for query-string/list params (the latter usually carries `SetDefaults()`).
+     - Output payloads: `<Name>Data` for any struct returned to the client in the response envelope's `data` field (matches `APIResponse[T].Data`, e.g. `APIResponse[HealthData]`). Nested sub-structs used only inside a `*Data` payload need no suffix (e.g. a `HealthServices` embedded in `HealthData`).
+   - **Layering — who may use DTOs:**
+     - `controllers` consume `*Request`/`*Query` (bind + validate) and emit `*Data`.
+     - `services` accept `*Request`/`*Query` as use-case input and build `*Data` from domain models.
+     - `repositories` **MUST NEVER** import `internal/dtos`. They operate on `internal/models` entities plus primitives or local filter types (e.g. a `RoleFilter` defined in `repositories`). Transport shapes never leak into the persistence layer.
 1. **Standard Error Envelope**:
    - Use `pkg/apperror.AppError` for domain and HTTP errors.
    - Format all HTTP responses using the standardized envelope in `internal/dtos/response_dto.go` (`status`, `code`, `message`, `data`, `errors`, `timestamp`).
