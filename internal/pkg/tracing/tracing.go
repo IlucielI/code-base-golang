@@ -10,6 +10,7 @@ package tracing
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -86,6 +87,17 @@ func Init(ctx context.Context, cfg Config) (ShutdownFunc, error) {
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
+
+	// Telemetry pipeline errors (e.g. the collector being unreachable) are
+	// operational, not application failures. Route them through a dedicated,
+	// clearly-prefixed handler so they are greppable and never mistaken for app
+	// errors, instead of the SDK default that writes to stderr.
+	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
+		if err == nil {
+			return
+		}
+		log.Printf("[OTEL ERROR] telemetry pipeline error: %v", err)
+	}))
 
 	return func(shutdownCtx context.Context) error {
 		return tp.Shutdown(shutdownCtx)
