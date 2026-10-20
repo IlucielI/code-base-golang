@@ -84,6 +84,14 @@ type Config struct {
 	// Request Body Limit Configuration
 	MaxRequestBodySize int64
 
+	// Tracing (OpenTelemetry) Configuration
+	TracingEnabled      bool
+	TracingServiceName  string
+	TracingExporter     string  // "otlp", "stdout", or "none"
+	TracingOTLPEndpoint string  // host:port for OTLP/HTTP, e.g. "localhost:4318"
+	TracingOTLPInsecure bool    // use plain HTTP instead of TLS
+	TracingSampleRatio  float64 // 0.0..1.0
+
 	// SMTP Configuration
 	SMTPHost      string
 	SMTPPort      string
@@ -170,6 +178,14 @@ func Load() Config {
 
 		// Request Body Limit settings (default 2MB)
 		MaxRequestBodySize: int64(getEnvInt("MAX_REQUEST_BODY_SIZE", 2*1024*1024)),
+
+		// Tracing settings (opt-in; disabled by default)
+		TracingEnabled:      getEnvBool("OTEL_TRACING_ENABLED", false),
+		TracingServiceName:  getEnv("OTEL_SERVICE_NAME", getEnv("APP_NAME", "code-base-golang")),
+		TracingExporter:     getEnv("OTEL_TRACES_EXPORTER", "otlp"),
+		TracingOTLPEndpoint: getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4318"),
+		TracingOTLPInsecure: getEnvBool("OTEL_EXPORTER_OTLP_INSECURE", true),
+		TracingSampleRatio:  getEnvFloat64("OTEL_TRACES_SAMPLER_ARG", 1.0),
 
 		// SMTP settings
 		SMTPHost:      getEnv("SMTP_HOST", "localhost"),

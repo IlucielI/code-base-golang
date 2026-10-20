@@ -15,6 +15,7 @@ import (
 	gormPostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	gormtracing "gorm.io/plugin/opentelemetry/tracing"
 
 	"code-base-golang/internal/config"
 )
@@ -39,6 +40,13 @@ func NewPostgres(cfg config.Config) (*Postgres, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// Instrument GORM with OpenTelemetry tracing when enabled.
+	if cfg.TracingEnabled {
+		if err := db.Use(gormtracing.NewPlugin(gormtracing.WithoutMetrics())); err != nil {
+			return nil, fmt.Errorf("failed to register gorm tracing plugin: %w", err)
+		}
 	}
 
 	sqlDB, err := db.DB()

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"gopkg.in/yaml.v3"
 
 	"code-base-golang/internal/config"
@@ -43,6 +44,11 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator 
 		AllowedHeaders:   cfg.CORSAllowedHeaders,
 		AllowCredentials: cfg.CORSAllowCredentials,
 		MaxAge:           cfg.CORSMaxAge,
+	}
+
+	// OpenTelemetry HTTP server instrumentation (only when tracing is enabled).
+	if cfg.TracingEnabled {
+		router.Use(otelgin.Middleware(cfg.TracingServiceName))
 	}
 
 	router.Use(
