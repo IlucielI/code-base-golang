@@ -1,9 +1,11 @@
 package workers
 
 import (
+	"context"
 	"log"
 
 	"code-base-golang/internal/config"
+	"code-base-golang/internal/queue"
 	"code-base-golang/internal/services"
 )
 
@@ -35,4 +37,31 @@ func (w *WorkerServer) RegisterWorker() {
 	// w.sub.MustSubscribe(constants.TopicUserRegistered, w.HandleUserRegistered)
 
 	log.Println("Done RegisterWorker")
+}
+
+// handleMessage is the shared handler shell for all worker subscriptions. It
+// decodes the raw message into T, runs process with the broker-provided context,
+// and logs the lifecycle (start/finish) and any parse/processing error uniformly.
+// It returns true to ACK the message or false to NACK (routing to DLQ/retry),
+// keeping individual handlers free of repetitive parse/log/ack boilerplate.
+//
+// Typical handler:
+//
+//	func (w *WorkerServer) HandleUserRegistered(ctx context.Context, msg []byte) bool {
+//	    return handleMessage(ctx, "user.registered", msg, w.svc.NotifyUserRegistered)
+//	}
+func handleMessage[T any](ctx context.Context, name string, msg []byte, process func(context.Context, T) error) bool {
+	var payload T
+	if err := queue.Parse(msg, &payload); err != nil {
+		log.Printf("[WORKER ERROR] %s: failed to parse payload: %v", name, err)
+		return false
+	}
+
+	log.Printf("[WORKER] %s: started", name)
+	if err := process(ctx, payload); err != nil {
+		log.Printf("[WORKER ERROR] %s: %v", name, err)
+		return false
+	}
+	log.Printf("[WORKER] %s: finished", name)
+	return true
 }
