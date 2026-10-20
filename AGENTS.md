@@ -80,8 +80,41 @@ This document defines the architectural invariants, conventions, and workflows f
 2. **Context & Metadata Propagation**:
    - Always accept `context.Context` as the first parameter in repository, service, and external adapter methods.
    - Extract client metadata using `pkg/ctxmeta` (`RequestID`, `ClientIP`, `UserAgent`).
-3. **Struct Validation**:
-   - Implement `validation.Validatable` (`ozzo-validation`) on request DTOs in `internal/dtos/` (file `*_dto.go`) with a `Validate()` method.
+3. **Request Validation (MANDATORY — ozzo-validation, in `internal/validations/`)**:
+   - All request validation **MUST** use `ozzo-validation` (`github.com/go-ozzo/ozzo-validation/v4`) and **MUST** live in `internal/validations/<entity>_validation.go` — **never** inside `internal/dtos/`.
+   - DTOs (`internal/dtos/*_dto.go`) contain **only** struct definitions, JSON/form/query tags, and an optional `SetDefaults()` method for pagination/query fallbacks. They **MUST NOT** carry a `Validate()` method or any validation rules.
+   - Expose validation as a standalone function per request type: `func Validate<Name>(req *dtos.<Name>) error` that returns `validation.ValidateStruct(req, validation.Field(...), ...)`. The `validations` package imports `dtos`; `dtos` **MUST NOT** import `validations` (avoids an import cycle).
+   - Controllers invoke validation explicitly; business logic never lives in the controller. The canonical handler flow is:
+     ```go
+     func (c *Controllers) ListRoles(ctx *gin.Context) {
+         var query dtos.RoleListQuery
+         if err := ctx.ShouldBindQuery(&query); err != nil { // or ShouldBindJSON for bodies
+             c.wrapError(ctx, constants.ErrBadRequest.WithMessage("invalid query parameters"))
+             return
+         }
+         query.SetDefaults()
+         if err := validations.ValidateRoleListQuery(&query); err != nil {
+             c.wrapError(ctx, constants.ErrBadRequest.WithMessage(err.Error()))
+             return
+         }
+         resp, err := c.svc.ListRoles(ctx.Request.Context(), query)
+         if err != nil {
+             c.wrapError(ctx, err)
+             return
+         }
+         c.respondOK(ctx, "Roles retrieved successfully", resp)
+     }
+     ```
+   - Example validation definition in `internal/validations/role_validation.go`:
+     ```go
+     func ValidateRoleListQuery(q *dtos.RoleListQuery) error {
+         return validation.ValidateStruct(q,
+             validation.Field(&q.Page, validation.Min(1)),
+             validation.Field(&q.Limit, validation.Min(1), validation.Max(100)),
+             validation.Field(&q.Search, validation.Length(0, 100)),
+         )
+     }
+     ```
 4. **Resource Safety**:
    - Always ensure connections, response bodies, and lock releases are deferred cleanly (`defer`).
    - Workers and async subscribers must handle graceful cancellation via `ctx.Done()`.
@@ -94,11 +127,12 @@ This document defines the architectural invariants, conventions, and workflows f
 1. **Migration**: Run `make migrate-create name=create_<entity>_table` and write `.up.sql` & `.down.sql`.
 2. **Model**: Create entity struct embedding `models.BaseModel` in `internal/models/<entity>_model.go`.
 3. **Repository**: Define interface and GORM queries in `internal/repositories/`.
-4. **DTO & Validation**: Define payload structs in `internal/dtos/<entity>_dto.go` with `Validate()` methods (validation rules in `internal/validations/<entity>_validation.go` when extracted).
-5. **Service**: Define interface & business implementation in `internal/services/`.
-6. **Controller**: Add handler method in `internal/controllers/`.
-7. **Routes**: Register path, HTTP method, and auth middlewares in `internal/routes/routes.yaml`.
-8. **Unit Tests**: Add tests alongside code using Go's standard `testing` package.
+4. **DTO**: Define request/response payload structs in `internal/dtos/<entity>_dto.go` (struct + tags only; add `SetDefaults()` for list/query DTOs). No `Validate()` method here.
+5. **Validation**: Define `func Validate<Name>(req *dtos.<Name>) error` using `ozzo-validation` in `internal/validations/<entity>_validation.go`.
+6. **Service**: Define interface & business implementation in `internal/services/`.
+7. **Controller**: Add handler method in `internal/controllers/` following the flow: bind (`ShouldBindJSON`/`ShouldBindQuery`) → `SetDefaults()` → `validations.Validate<Name>(&req)` → service call → `respondOK`/`respondCreated`.
+8. **Routes**: Register path, HTTP method, and auth middlewares in `internal/routes/routes.yaml`.
+9. **Unit Tests**: Add tests alongside code using Go's standard `testing` package.
 
 ### Adding an Asynchronous Event / Worker
 1. Define event payload struct in `internal/payload/`.
