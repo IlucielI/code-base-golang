@@ -86,6 +86,7 @@ This document defines the architectural invariants, conventions, and workflows f
 1. **Standard Error Envelope**:
    - Use `pkg/apperror.AppError` for domain and HTTP errors.
    - Format all HTTP responses using the standardized envelope in `internal/dtos/response_dto.go` (`status`, `code`, `message`, `data`, `errors`, `timestamp`).
+   - **Wrap failures at the point they occur.** Services and repositories that fail with an unexpected/internal error should return `constants.ErrInternalServerError.Wrap(err)` (or a more specific 5xx template) at the failure site, not a bare `err`. `AppError.Wrap` captures a Go stack trace for 5xx errors at the first wrap point — so wrapping in the service makes the trace point at the service line, whereas letting a raw error bubble up to the controller captures the stack at the controller instead. 4xx errors intentionally carry no stack. The controller's `wrapError` records the error (and its stack) on the active OpenTelemetry span and, in development, logs the stack for local debugging.
 2. **Context & Metadata Propagation**:
    - Always accept `context.Context` as the first parameter in repository, service, and external adapter methods.
    - Extract client metadata using `pkg/ctxmeta` (`RequestID`, `ClientIP`, `UserAgent`).
