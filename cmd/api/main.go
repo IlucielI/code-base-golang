@@ -45,6 +45,7 @@ func main() {
 		Exporter:     cfg.TracingExporter,
 		OTLPEndpoint: cfg.TracingOTLPEndpoint,
 		OTLPInsecure: cfg.TracingOTLPInsecure,
+		OTLPHeaders:  cfg.TracingOTLPHeaders,
 		SampleRatio:  cfg.TracingSampleRatio,
 	})
 	if err != nil {
