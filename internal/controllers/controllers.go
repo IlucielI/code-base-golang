@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
@@ -49,6 +52,17 @@ func (c *Controllers) wrapError(ctx *gin.Context, err error) {
 
 	appErr := constants.ErrInternalServerError.Wrap(err)
 
+	// Record the error on the active trace span (no-op when tracing is disabled).
+	if ctx.Request != nil {
+		if span := trace.SpanFromContext(ctx.Request.Context()); span.IsRecording() {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, appErr.Message)
+			if stackTrace := appErr.FormattedStack(); stackTrace != "" {
+				span.SetAttributes(attribute.String("exception.stacktrace", stackTrace))
+			}
+		}
+	}
+
 	status := constants.ResponseStatusError
 	if appErr.HTTPStatus >= 400 && appErr.HTTPStatus < 500 {
 		status = constants.ResponseStatusFail
@@ -62,6 +76,12 @@ func (c *Controllers) wrapError(ctx *gin.Context, err error) {
 			}
 		}
 		log.Printf("[API ERROR %d] %s %s: %v", appErr.HTTPStatus, reqMethod, reqPath, err)
+		// In development, print the capture stack trace to aid local debugging.
+		if c.cfg.AppEnv == "development" {
+			if stackTrace := appErr.FormattedStack(); stackTrace != "" {
+				log.Printf("[API ERROR %d] stack trace:\n%s", appErr.HTTPStatus, stackTrace)
+			}
+		}
 	}
 
 	ctx.JSON(appErr.HTTPStatus, dtos.BaseResponse{

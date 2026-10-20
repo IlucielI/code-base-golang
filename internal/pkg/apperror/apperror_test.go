@@ -3,6 +3,7 @@ package apperror
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -113,6 +114,57 @@ func TestAppError_WithMessage(t *testing.T) {
 	updated := template.WithMessage("new custom message")
 	if updated.Message != "new custom message" || updated.HTTPStatus != http.StatusBadRequest {
 		t.Fatalf("unexpected updated error: %+v", updated)
+	}
+}
+
+func TestAppError_StackTrace(t *testing.T) {
+	// 5xx wrap captures a stack with a resolvable frame pointing at this test.
+	serverTemplate := New(http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error")
+	wrapped := serverTemplate.Wrap(errors.New("boom"))
+
+	frames := wrapped.StackTrace()
+	if len(frames) == 0 {
+		t.Fatal("expected 5xx wrap to capture a stack trace")
+	}
+	formatted := wrapped.FormattedStack()
+	if formatted == "" {
+		t.Fatal("expected non-empty formatted stack for 5xx error")
+	}
+	if !strings.Contains(formatted, "TestAppError_StackTrace") {
+		t.Fatalf("expected formatted stack to reference the caller, got:\n%s", formatted)
+	}
+	if !strings.Contains(formatted, "apperror_test.go") {
+		t.Fatalf("expected formatted stack to include file name, got:\n%s", formatted)
+	}
+
+	// 4xx wrap does not capture a stack (client errors are expected, not bugs).
+	clientTemplate := New(http.StatusBadRequest, "BAD_REQUEST", "bad request")
+	clientWrapped := clientTemplate.Wrap(errors.New("invalid field"))
+	if len(clientWrapped.StackTrace()) != 0 || clientWrapped.FormattedStack() != "" {
+		t.Fatal("expected 4xx wrap to capture no stack trace")
+	}
+
+	// Wrapping an existing AppError does not recapture the stack.
+	existing := serverTemplate.Wrap(errors.New("first cause"))
+	rewrapped := New(http.StatusInternalServerError, "INTERNAL_ERROR", "x").Wrap(existing)
+	if rewrapped != existing {
+		t.Fatal("expected Wrap to return the existing AppError unchanged")
+	}
+
+	// WithMessage preserves the captured stack.
+	withMsg := wrapped.WithMessage("new message")
+	if len(withMsg.StackTrace()) == 0 {
+		t.Fatal("expected WithMessage to preserve the captured stack")
+	}
+
+	// Nil receiver and stack-less errors are safe.
+	var nilErr *AppError
+	if nilErr.StackTrace() != nil || nilErr.FormattedStack() != "" {
+		t.Fatal("expected nil receiver to have no stack")
+	}
+	plain := New(http.StatusInternalServerError, "INTERNAL_ERROR", "no cause")
+	if plain.FormattedStack() != "" {
+		t.Fatal("expected New without a cause to capture no stack")
 	}
 }
 
