@@ -32,10 +32,11 @@ type Config struct {
 	ServiceName  string
 	Version      string
 	Environment  string
-	Exporter     string  // "otlp", "stdout", or "none"
-	OTLPEndpoint string  // host:port for OTLP/HTTP, e.g. "localhost:4318"
-	OTLPInsecure bool    // use plain HTTP instead of TLS
-	SampleRatio  float64 // 0.0..1.0; parent-based ratio sampler
+	Exporter     string            // "otlp", "stdout", or "none"
+	OTLPEndpoint string            // host:port for OTLP/HTTP, e.g. "localhost:4318"
+	OTLPInsecure bool              // use plain HTTP instead of TLS
+	OTLPHeaders  map[string]string // extra OTLP headers (e.g. auth tokens for managed backends)
+	SampleRatio  float64           // 0.0..1.0; parent-based ratio sampler
 }
 
 // ShutdownFunc flushes buffered spans and releases exporter resources.
@@ -116,6 +117,9 @@ func newExporter(ctx context.Context, kind string, cfg Config) (sdktrace.SpanExp
 		}
 		if cfg.OTLPInsecure {
 			opts = append(opts, otlptracehttp.WithInsecure())
+		}
+		if len(cfg.OTLPHeaders) > 0 {
+			opts = append(opts, otlptracehttp.WithHeaders(cfg.OTLPHeaders))
 		}
 		dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()

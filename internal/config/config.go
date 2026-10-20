@@ -87,10 +87,11 @@ type Config struct {
 	// Tracing (OpenTelemetry) Configuration
 	TracingEnabled      bool
 	TracingServiceName  string
-	TracingExporter     string  // "otlp", "stdout", or "none"
-	TracingOTLPEndpoint string  // host:port for OTLP/HTTP, e.g. "localhost:4318"
-	TracingOTLPInsecure bool    // use plain HTTP instead of TLS
-	TracingSampleRatio  float64 // 0.0..1.0
+	TracingExporter     string            // "otlp", "stdout", or "none"
+	TracingOTLPEndpoint string            // host:port for OTLP/HTTP, e.g. "localhost:4318"
+	TracingOTLPInsecure bool              // use plain HTTP instead of TLS
+	TracingOTLPHeaders  map[string]string // extra OTLP headers, e.g. auth tokens for managed backends
+	TracingSampleRatio  float64           // 0.0..1.0
 
 	// SMTP Configuration
 	SMTPHost      string
@@ -185,6 +186,7 @@ func Load() Config {
 		TracingExporter:     getEnv("OTEL_TRACES_EXPORTER", "otlp"),
 		TracingOTLPEndpoint: getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4318"),
 		TracingOTLPInsecure: getEnvBool("OTEL_EXPORTER_OTLP_INSECURE", true),
+		TracingOTLPHeaders:  getEnvKeyValueMap("OTEL_EXPORTER_OTLP_HEADERS"),
 		TracingSampleRatio:  getEnvFloat64("OTEL_TRACES_SAMPLER_ARG", 1.0),
 
 		// SMTP settings
@@ -330,6 +332,32 @@ func getEnvSlice(key string, fallback []string) []string {
 	}
 	if len(res) == 0 {
 		return fallback
+	}
+	return res
+}
+
+// getEnvKeyValueMap parses a comma-separated list of key=value pairs
+// (e.g. "x-api-key=secret,x-dataset=prod") into a map, following the
+// OTEL_EXPORTER_OTLP_HEADERS convention. Returns nil when unset or empty.
+func getEnvKeyValueMap(key string) map[string]string {
+	valStr := os.Getenv(key)
+	if valStr == "" {
+		return nil
+	}
+	res := make(map[string]string)
+	for _, pair := range strings.Split(valStr, ",") {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		k := strings.TrimSpace(kv[0])
+		v := strings.TrimSpace(kv[1])
+		if k != "" {
+			res[k] = v
+		}
+	}
+	if len(res) == 0 {
+		return nil
 	}
 	return res
 }
