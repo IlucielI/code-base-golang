@@ -14,11 +14,15 @@ import (
 	"code-base-golang/internal/controllers"
 	"code-base-golang/internal/dtos"
 	"code-base-golang/internal/routes"
+	"code-base-golang/internal/services"
 )
 
 func TestRouter_HealthCheck(t *testing.T) {
 	cfg := config.Load()
-	ctrls := controllers.New(cfg, nil)
+	// A live service with nil adapters: the health endpoint must still return 200
+	// and report each unconfigured sub-system as disconnected.
+	svc := services.New(cfg, nil, nil)
+	ctrls := controllers.New(cfg, svc)
 	router := routes.NewRouter(cfg, ctrls)
 
 	w := httptest.NewRecorder()
@@ -69,7 +73,7 @@ func TestRouter_HealthCheck(t *testing.T) {
 
 func TestRouter_PanicRecovery(t *testing.T) {
 	cfg := config.Load()
-	ctrls := controllers.New(cfg, nil)
+	ctrls := controllers.New(cfg, services.New(cfg, nil, nil))
 	router := routes.NewRouter(cfg, ctrls)
 
 	// Register an endpoint that panics
@@ -120,7 +124,7 @@ func TestRouter_PanicRecovery(t *testing.T) {
 
 func TestRouter_DocsEndpoints(t *testing.T) {
 	cfg := config.Load()
-	ctrls := controllers.New(cfg, nil)
+	ctrls := controllers.New(cfg, services.New(cfg, nil, nil))
 	router := routes.NewRouter(cfg, ctrls)
 
 	tests := []struct {
