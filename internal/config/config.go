@@ -12,6 +12,7 @@ import (
 type Config struct {
 	AppName  string
 	AppEnv   string
+	AppURL   string
 	HTTPPort string
 	Version  string
 	GitHash  string
@@ -80,6 +81,9 @@ type Config struct {
 	RateLimiterLimit   float64
 	RateLimiterBurst   int
 
+	// Request Body Limit Configuration
+	MaxRequestBodySize int64
+
 	// SMTP Configuration
 	SMTPHost      string
 	SMTPPort      string
@@ -95,6 +99,7 @@ func Load() Config {
 	return Config{
 		AppName:  getEnv("APP_NAME", "code-base-golang"),
 		AppEnv:   getEnv("APP_ENV", "development"),
+		AppURL:   getEnv("APP_URL", "http://localhost:3000"),
 		HTTPPort: getEnv("HTTP_PORT", "8080"),
 		Version:  getEnv("APP_VERSION", "0.1.0"),
 		GitHash:  getEnv("GIT_HASH", "dev"),
@@ -162,6 +167,9 @@ func Load() Config {
 		RateLimiterEnabled: getEnvBool("RATE_LIMITER_ENABLED", true),
 		RateLimiterLimit:   getEnvFloat64("RATE_LIMITER_LIMIT", 20.0),
 		RateLimiterBurst:   getEnvInt("RATE_LIMITER_BURST", 30),
+
+		// Request Body Limit settings (default 2MB)
+		MaxRequestBodySize: int64(getEnvInt("MAX_REQUEST_BODY_SIZE", 2*1024*1024)),
 
 		// SMTP settings
 		SMTPHost:      getEnv("SMTP_HOST", "localhost"),
