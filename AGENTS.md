@@ -159,8 +159,20 @@ This document defines the architectural invariants, conventions, and workflows f
 
 ### Adding an Asynchronous Event / Worker
 1. Define the queue message payload struct in `internal/queue/`.
-2. Publish event via `services.EventPublisher.Publish(ctx, exchange, routingKey, body)`.
-3. Register worker handler in `internal/workers/worker.go` using `w.sub.Subscribe(ctx, queue, exchange, routingKey, handler)`.
+2. Publish the event via `services.EventPublisher.Publish(ctx, exchange, routingKey, body)`.
+3. Add the handler method in `internal/workers/` and subscribe it inside `WorkerServer.RegisterWorker` with `w.sub.MustSubscribe(constants.Topic<Name>, w.Handle<Name>)`.
+
+**Worker handler rules (keep handlers thin, no boilerplate):**
+- **Never** repeat the parse → log → run-service → map-to-ack sequence in each handler. Route every handler through the shared generic `handleMessage[T]` helper in `worker.go`, which decodes the payload, logs the start/finish/error lifecycle uniformly, and returns the ack/nack bool:
+  ```go
+  func (w *WorkerServer) HandleUserRegistered(ctx context.Context, msg []byte) bool {
+      return handleMessage(ctx, "user.registered", msg, w.svc.NotifyUserRegistered)
+  }
+  ```
+  The `process` function passed in is typically a service method with signature `func(context.Context, T) error`; business logic stays in the service, never in the handler.
+- A handler returns `true` to ACK and `false` to NACK (routing the message to the DLQ/retry). Let `handleMessage` derive this from the service error — do not hand-roll ack logic.
+- Always honour the broker-provided `ctx` (for cancellation/tracing); do not create a fresh `context.Background()` inside handlers.
+- **One handler file per domain**, not one growing `worker.go`. `worker.go` holds only `WorkerServer`, `New`, `RegisterWorker` and the shared helper; put domain handlers in `internal/workers/<domain>_worker.go` (e.g. `recording_worker.go`). `RegisterWorker` stays the single registry of all subscriptions, grouped by domain with comments.
 
 ---
 
