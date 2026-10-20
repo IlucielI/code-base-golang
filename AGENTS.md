@@ -141,6 +141,26 @@ This document defines the architectural invariants, conventions, and workflows f
 4. **Resource Safety**:
    - Always ensure connections, response bodies, and lock releases are deferred cleanly (`defer`).
    - Workers and async subscribers must handle graceful cancellation via `ctx.Done()`.
+5. **Templates & Large Text Content (MANDATORY)**:
+   - HTML, email bodies, long prompts, or any multi-line markup/text block **MUST NOT** be embedded as string literals inside `.go` files. Store them as template files under `internal/templates/<category>/` (e.g. `emails/`, `prompts/`).
+   - Use a **consistent `.tmpl` extension** so the embed glob never silently skips a file: `*.html.tmpl` for HTML, `*.txt.tmpl` for plain text/prompts.
+   - Load templates with `//go:embed` and render them through Go's template engine. The `.go` file holds only the embed directive, the parsed-template variables, the data structs, and thin render functions — never the content itself.
+   - Choose the engine by output type for safety: **`html/template` for anything rendered as HTML** (it auto-escapes and prevents injection/XSS), and `text/template` only for non-HTML output (plain-text emails, LLM prompts).
+   - Example:
+     ```go
+     //go:embed emails/*.tmpl
+     var emailFS embed.FS
+
+     var emailHTML = htmltemplate.Must(htmltemplate.ParseFS(emailFS, "emails/*.html.tmpl"))
+
+     func RenderWelcomeEmail(data WelcomeEmailData) (string, error) {
+         var buf bytes.Buffer
+         if err := emailHTML.ExecuteTemplate(&buf, "welcome.html.tmpl", data); err != nil {
+             return "", fmt.Errorf("execute welcome.html.tmpl: %w", err)
+         }
+         return strings.TrimSpace(buf.String()), nil
+     }
+     ```
 
 ---
 
