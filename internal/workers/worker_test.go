@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"code-base-golang/internal/config"
-	"code-base-golang/internal/payload"
+	"code-base-golang/internal/queue"
 	"code-base-golang/internal/workers"
 )
 
@@ -33,10 +33,10 @@ func TestWorkerServer_Nil(t *testing.T) {
 	serverWithMock.RegisterWorker() // should execute register cleanly
 }
 
-func TestPayload_MustParse(t *testing.T) {
+func TestQueue_MustParse(t *testing.T) {
 	data := []byte(`{"id":"entity-123"}`)
-	var p payload.Id
-	payload.MustParse(data, &p)
+	var p queue.Id
+	queue.MustParse(data, &p)
 	if p.Id != "entity-123" {
 		t.Errorf("expected entity-123, got %s", p.Id)
 	}
@@ -46,20 +46,20 @@ func TestPayload_MustParse(t *testing.T) {
 			t.Error("expected MustParse to panic on invalid json")
 		}
 	}()
-	payload.MustParse([]byte("invalid json"), &p)
+	queue.MustParse([]byte("invalid json"), &p)
 }
 
-func TestPayload_Parse(t *testing.T) {
+func TestQueue_Parse(t *testing.T) {
 	data := []byte(`{"id":"order-999"}`)
-	var p payload.Id
-	if err := payload.Parse(data, &p); err != nil {
+	var p queue.Id
+	if err := queue.Parse(data, &p); err != nil {
 		t.Errorf("expected nil error parsing payload, got %v", err)
 	}
 	if p.Id != "order-999" {
 		t.Errorf("expected order-999, got %s", p.Id)
 	}
 
-	if err := payload.Parse([]byte("bad json"), &p); err == nil {
+	if err := queue.Parse([]byte("bad json"), &p); err == nil {
 		t.Error("expected error parsing invalid json, got nil")
 	}
 }

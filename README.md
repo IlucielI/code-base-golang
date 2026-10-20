@@ -86,8 +86,8 @@ The boilerplate adheres strictly to **Clean Architecture** and idiomatic Go desi
     ├── dtos/               # Request payloads and API response definitions (*_dto.go)
     ├── middlewares/        # Middlewares (CORS, Rate Limiter, JWT Auth, Basic Auth, Client Meta, Logger, Recovery)
     ├── models/             # Domain entities and base models (*_model.go, e.g. BaseModel, JSONMap)
-    ├── payload/            # Worker message payloads (Id, MustParse, domain payloads)
     ├── pkg/                # Reusable packages (AppError, Context Metadata, JWT utilities, Migration)
+    ├── queue/              # Queue message payloads (Id, MustParse, domain payloads)
     ├── repositories/       # Data access layer interfacing with GORM & Redis
     ├── routes/             # YAML-based route registration (routes.yaml) and engine setup
     ├── services/           # Core business logic orchestration (decoupled ports)
