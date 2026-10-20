@@ -9,7 +9,9 @@ const (
 	ResponseCodeUnauthorized  = "UNAUTHORIZED"
 	ResponseCodeForbidden     = "FORBIDDEN"
 	ResponseCodeConflict      = "CONFLICT"
-	ResponseCodeTooManyRequests = "TOO_MANY_REQUESTS"
+	ResponseCodeTooManyRequests      = "TOO_MANY_REQUESTS"
+	ResponseCodePayloadTooLarge      = "PAYLOAD_TOO_LARGE"
+	ResponseCodeUnsupportedMediaType = "UNSUPPORTED_MEDIA_TYPE"
 )
 
 const (
