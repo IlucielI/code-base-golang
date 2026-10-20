@@ -28,6 +28,12 @@ var (
 	// ErrTooManyRequests is returned when a client exceeds rate limits.
 	ErrTooManyRequests = apperror.New(http.StatusTooManyRequests, ResponseCodeTooManyRequests, "too many requests, please try again later")
 
+	// ErrPayloadTooLarge is returned when a request body exceeds the maximum allowed size.
+	ErrPayloadTooLarge = apperror.New(http.StatusRequestEntityTooLarge, ResponseCodePayloadTooLarge, "request payload too large")
+
+	// ErrUnsupportedMediaType is returned when the request content type is not supported.
+	ErrUnsupportedMediaType = apperror.New(http.StatusUnsupportedMediaType, ResponseCodeUnsupportedMediaType, "unsupported media type")
+
 	// ErrInternalServerError is returned when an unexpected system error occurs.
 	ErrInternalServerError = apperror.New(http.StatusInternalServerError, ResponseCodeInternalError, "internal server error")
 )

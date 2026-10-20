@@ -107,6 +107,8 @@ To keep each layer's files self-describing, files in these packages carry a mand
 
 Test files append the suffix before `_test.go` (e.g. `recording_dto_test.go`).
 
+Other packages name files by topic rather than role — e.g. `internal/constants/` uses one file per topic/domain (`error.go`, `response.go`, `worker.go`, `<domain>.go`), not `*_constant.go`.
+
 ### Request Validation
 
 Request validation is standardized and strictly separated from DTOs:

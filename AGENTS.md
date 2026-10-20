@@ -74,6 +74,7 @@ This document defines the architectural invariants, conventions, and workflows f
      - `internal/validations/` → `*_validation.go` (e.g. `recording_validation.go`)
    - Test files append the suffix before `_test.go` (e.g. `recording_dto_test.go`, `base_model_test.go`).
    - Rationale: these layers hold many small per-entity files; the suffix keeps the editor's file list self-describing and prevents name collisions across layers (e.g. a `recording` DTO vs. a `recording` model).
+   - **No suffix elsewhere.** Other packages name files by topic, not role — e.g. `internal/constants/` uses one file per topic/domain (`error.go`, `response.go`, `worker.go`, `<domain>.go`); do **not** create `*_constant.go` (it stutters with the package name). The same applies to `pkg/`, `adapters/`, etc.
 1. **Standard Error Envelope**:
    - Use `pkg/apperror.AppError` for domain and HTTP errors.
    - Format all HTTP responses using the standardized envelope in `internal/dtos/response_dto.go` (`status`, `code`, `message`, `data`, `errors`, `timestamp`).
