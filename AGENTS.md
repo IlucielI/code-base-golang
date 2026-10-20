@@ -83,10 +83,23 @@ This document defines the architectural invariants, conventions, and workflows f
      - `controllers` consume `*Request`/`*Query` (bind + validate) and emit `*Data`.
      - `services` accept `*Request`/`*Query` as use-case input and build `*Data` from domain models.
      - `repositories` **MUST NEVER** import `internal/dtos`. They operate on `internal/models` entities plus primitives or local filter types (e.g. a `RoleFilter` defined in `repositories`). Transport shapes never leak into the persistence layer.
-1. **Standard Error Envelope**:
+1. **Standard Error Envelope & Error Handling by Layer**:
    - Use `pkg/apperror.AppError` for domain and HTTP errors.
    - Format all HTTP responses using the standardized envelope in `internal/dtos/response_dto.go` (`status`, `code`, `message`, `data`, `errors`, `timestamp`).
-   - **Wrap failures at the point they occur.** Services and repositories that fail with an unexpected/internal error should return `constants.ErrInternalServerError.Wrap(err)` (or a more specific 5xx template) at the failure site, not a bare `err`. `AppError.Wrap` captures a Go stack trace for 5xx errors at the first wrap point — so wrapping in the service makes the trace point at the service line, whereas letting a raw error bubble up to the controller captures the stack at the controller instead. 4xx errors intentionally carry no stack. The controller's `wrapError` records the error (and its stack) on the active OpenTelemetry span and, in development, logs the stack for local debugging.
+   - **Repositories return raw errors.** A repository returns the underlying driver/GORM error unchanged (e.g. `return nil, err`, propagating `gorm.ErrRecordNotFound`). Repositories **MUST NOT** import `constants`/`apperror` or assign HTTP status — persistence does not know about transport concerns.
+   - **Services translate errors into `AppError`.** The service layer is where raw errors become domain errors. Map expected conditions to the right template (e.g. `errors.Is(err, gorm.ErrRecordNotFound)` → `constants.ErrNotFound`, a 4xx that carries no stack) and wrap everything unexpected as a 5xx: `return constants.ErrInternalServerError.Wrap(err)`.
+   - **Why wrap in the service, not the controller.** `AppError.Wrap` captures a Go stack trace for 5xx errors at the *first* wrap point. Wrapping in the service makes the trace point at the service line closest to the failing repository call. If a raw error bubbles all the way up, the controller's `wrapError` wraps it there instead and the stack points at the controller — much less useful. Go cannot reconstruct the original repository line from a bare error, so the service call site is the most useful anchor; do not add `AppError` wrapping inside repositories to chase it.
+   - The controller's `wrapError` is the final safety net: it records the error (and any captured stack) on the active OpenTelemetry span, and in development logs the stack for local debugging.
+   - Example (service):
+     ```go
+     role, err := s.repo.FindRoleByID(ctx, id)
+     if err != nil {
+         if errors.Is(err, gorm.ErrRecordNotFound) {
+             return nil, constants.ErrNotFound.WithMessage("role not found")
+         }
+         return nil, constants.ErrInternalServerError.Wrap(err) // stack captured here
+     }
+     ```
 2. **Context & Metadata Propagation**:
    - Always accept `context.Context` as the first parameter in repository, service, and external adapter methods.
    - Extract client metadata using `pkg/ctxmeta` (`RequestID`, `ClientIP`, `UserAgent`).
