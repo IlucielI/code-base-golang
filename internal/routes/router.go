@@ -53,9 +53,11 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator 
 		middlewares.ClientMeta(),
 	)
 
-	// Central controllers container
+	// Central controllers container. A fully-wired controller (with a live
+	// service) is a hard precondition: failing fast here surfaces wiring bugs
+	// instead of silently constructing a controller with a nil service.
 	if ctrls == nil {
-		ctrls = controllers.New(cfg, nil)
+		log.Fatal("router configuration error: controllers must not be nil")
 	}
 	ctrlsVal := reflect.ValueOf(ctrls)
 
