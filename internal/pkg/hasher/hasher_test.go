@@ -23,8 +23,14 @@ func TestHashAndVerifyPassword(t *testing.T) {
 
 func TestHashPassword_ProducesDistinctHashes(t *testing.T) {
 	// bcrypt salts each hash, so the same input yields different digests.
-	h1, _ := HashPassword("same-input")
-	h2, _ := HashPassword("same-input")
+	h1, err := HashPassword("same-input")
+	if err != nil {
+		t.Fatalf("failed to hash first input: %v", err)
+	}
+	h2, err := HashPassword("same-input")
+	if err != nil {
+		t.Fatalf("failed to hash second input: %v", err)
+	}
 	if h1 == h2 {
 		t.Fatal("expected bcrypt to produce salted, distinct hashes for equal inputs")
 	}
