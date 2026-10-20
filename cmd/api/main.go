@@ -17,6 +17,7 @@ import (
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/controllers"
 	"code-base-golang/internal/pkg/migration"
+	"code-base-golang/internal/pkg/tracing"
 	"code-base-golang/internal/repositories"
 	"code-base-golang/internal/routes"
 	"code-base-golang/internal/services"
@@ -34,6 +35,28 @@ func main() {
 	}
 
 	cfg := config.Load()
+
+	// Initialize OpenTelemetry tracing (opt-in via OTEL_TRACING_ENABLED).
+	tracingShutdown, err := tracing.Init(context.Background(), tracing.Config{
+		Enabled:      cfg.TracingEnabled,
+		ServiceName:  cfg.TracingServiceName,
+		Version:      cfg.Version,
+		Environment:  cfg.AppEnv,
+		Exporter:     cfg.TracingExporter,
+		OTLPEndpoint: cfg.TracingOTLPEndpoint,
+		OTLPInsecure: cfg.TracingOTLPInsecure,
+		SampleRatio:  cfg.TracingSampleRatio,
+	})
+	if err != nil {
+		log.Printf("[WARN] tracing initialization failed, continuing without tracing: %v", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := tracingShutdown(shutdownCtx); err != nil {
+			log.Printf("error shutting down tracing: %v", err)
+		}
+	}()
 
 	// Initialize database adapter
 	db, err := database.NewPostgres(cfg)

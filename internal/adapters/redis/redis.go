@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 
 	"code-base-golang/internal/config"
@@ -39,6 +40,14 @@ func New(cfg config.Config) (*Redis, error) {
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		_ = rdb.Close()
 		return nil, fmt.Errorf("failed to ping redis at %s: %w", cfg.RedisAddr(), err)
+	}
+
+	// Instrument Redis with OpenTelemetry tracing when enabled.
+	if cfg.TracingEnabled {
+		if err := redisotel.InstrumentTracing(rdb); err != nil {
+			_ = rdb.Close()
+			return nil, fmt.Errorf("failed to instrument redis tracing: %w", err)
+		}
 	}
 
 	return &Redis{client: rdb}, nil
