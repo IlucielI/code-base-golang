@@ -107,6 +107,47 @@ To keep each layer's files self-describing, files in these packages carry a mand
 
 Test files append the suffix before `_test.go` (e.g. `recording_dto_test.go`).
 
+### Request Validation
+
+Request validation is standardized and strictly separated from DTOs:
+
+- All validation uses **ozzo-validation** and lives in `internal/validations/<entity>_validation.go` as standalone functions — **never** inside `internal/dtos/`.
+- DTOs hold only struct definitions, tags, and an optional `SetDefaults()` for pagination/query fallbacks (no `Validate()` method).
+- Each request type gets a function `Validate<Name>(req *dtos.<Name>) error`. The `validations` package imports `dtos`, not the other way around (avoids an import cycle).
+- Controllers wire it explicitly, keeping handlers thin:
+
+```go
+func (c *Controllers) ListRoles(ctx *gin.Context) {
+    var query dtos.RoleListQuery
+    if err := ctx.ShouldBindQuery(&query); err != nil {
+        c.wrapError(ctx, constants.ErrBadRequest.WithMessage("invalid query parameters"))
+        return
+    }
+    query.SetDefaults()
+    if err := validations.ValidateRoleListQuery(&query); err != nil {
+        c.wrapError(ctx, constants.ErrBadRequest.WithMessage(err.Error()))
+        return
+    }
+    resp, err := c.svc.ListRoles(ctx.Request.Context(), query)
+    if err != nil {
+        c.wrapError(ctx, err)
+        return
+    }
+    c.respondOK(ctx, "Roles retrieved successfully", resp)
+}
+```
+
+```go
+// internal/validations/role_validation.go
+func ValidateRoleListQuery(q *dtos.RoleListQuery) error {
+    return validation.ValidateStruct(q,
+        validation.Field(&q.Page, validation.Min(1)),
+        validation.Field(&q.Limit, validation.Min(1), validation.Max(100)),
+        validation.Field(&q.Search, validation.Length(0, 100)),
+    )
+}
+```
+
 ---
 
 ## Tech Stack
