@@ -2,67 +2,41 @@ package services
 
 import (
 	"context"
-	"time"
 
 	"code-base-golang/internal/constants"
 	"code-base-golang/internal/dtos"
+	"code-base-golang/internal/pkg/ctxutil"
 )
 
 // CheckHealth inspects the connectivity of sub-systems (database, redis, s3 storage).
+// The service is guaranteed non-nil by construction: cmd/api/main.go always injects a
+// live service, and routes.NewRouter rejects a nil controller. Individual adapters may
+// still be nil (e.g. the broker fails to connect outside production), so each is guarded
+// and reported as disconnected rather than panicking.
 func (s *Service) CheckHealth(ctx context.Context) dtos.HealthServices {
 	dbStatus := constants.IntegrationStatusConnected
-	if s == nil || s.repo == nil {
+	if s.repo == nil || ctxutil.RunWithTimeout(ctx, 0, s.repo.PingDB) != nil {
 		dbStatus = constants.IntegrationStatusDisconnected
-	} else {
-		pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		defer cancel()
-		if err := s.repo.PingDB(pingCtx); err != nil {
-			dbStatus = constants.IntegrationStatusDisconnected
-		}
 	}
 
 	redisStatus := constants.IntegrationStatusConnected
-	if s == nil || s.repo == nil {
+	if s.repo == nil || ctxutil.RunWithTimeout(ctx, 0, s.repo.PingRedis) != nil {
 		redisStatus = constants.IntegrationStatusDisconnected
-	} else {
-		pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		defer cancel()
-		if err := s.repo.PingRedis(pingCtx); err != nil {
-			redisStatus = constants.IntegrationStatusDisconnected
-		}
 	}
 
 	s3Status := constants.IntegrationStatusConnected
-	if s == nil || s.storage == nil {
+	if s.storage == nil || ctxutil.RunWithTimeout(ctx, 0, s.storage.Ping) != nil {
 		s3Status = constants.IntegrationStatusDisconnected
-	} else {
-		pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		defer cancel()
-		if err := s.storage.Ping(pingCtx); err != nil {
-			s3Status = constants.IntegrationStatusDisconnected
-		}
 	}
 
 	rmqStatus := constants.IntegrationStatusConnected
-	if s == nil || s.publisher == nil {
+	if s.publisher == nil || ctxutil.RunWithTimeout(ctx, 0, s.publisher.Ping) != nil {
 		rmqStatus = constants.IntegrationStatusDisconnected
-	} else {
-		pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		defer cancel()
-		if err := s.publisher.Ping(pingCtx); err != nil {
-			rmqStatus = constants.IntegrationStatusDisconnected
-		}
 	}
 
 	smtpStatus := constants.IntegrationStatusConnected
-	if s == nil || s.mailer == nil {
+	if s.mailer == nil || ctxutil.RunWithTimeout(ctx, 0, s.mailer.Ping) != nil {
 		smtpStatus = constants.IntegrationStatusDisconnected
-	} else {
-		pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		defer cancel()
-		if err := s.mailer.Ping(pingCtx); err != nil {
-			smtpStatus = constants.IntegrationStatusDisconnected
-		}
 	}
 
 	return dtos.HealthServices{
