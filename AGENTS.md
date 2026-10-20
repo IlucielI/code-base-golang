@@ -67,14 +67,21 @@ This document defines the architectural invariants, conventions, and workflows f
 
 ## 4. Core Coding Conventions
 
+0. **File Naming Suffixes (MANDATORY)**:
+   - Files in the following packages **MUST** carry a role suffix so each file's layer is unambiguous. This applies to every file in the package, including shared/base ones (e.g. the response envelope and base model), for consistency.
+     - `internal/dtos/` → `*_dto.go` (e.g. `recording_dto.go`, `response_dto.go`, `pagination_dto.go`)
+     - `internal/models/` → `*_model.go` (e.g. `recording_model.go`, `base_model.go`)
+     - `internal/validations/` → `*_validation.go` (e.g. `recording_validation.go`)
+   - Test files append the suffix before `_test.go` (e.g. `recording_dto_test.go`, `base_model_test.go`).
+   - Rationale: these layers hold many small per-entity files; the suffix keeps the editor's file list self-describing and prevents name collisions across layers (e.g. a `recording` DTO vs. a `recording` model).
 1. **Standard Error Envelope**:
    - Use `pkg/apperror.AppError` for domain and HTTP errors.
-   - Format all HTTP responses using the standardized envelope in `internal/dtos/response.go` (`status`, `code`, `message`, `data`, `errors`, `timestamp`).
+   - Format all HTTP responses using the standardized envelope in `internal/dtos/response_dto.go` (`status`, `code`, `message`, `data`, `errors`, `timestamp`).
 2. **Context & Metadata Propagation**:
    - Always accept `context.Context` as the first parameter in repository, service, and external adapter methods.
    - Extract client metadata using `pkg/ctxmeta` (`RequestID`, `ClientIP`, `UserAgent`).
 3. **Struct Validation**:
-   - Implement `validation.Validatable` (`ozzo-validation`) on request DTOs in `internal/dtos/` with a `Validate()` method.
+   - Implement `validation.Validatable` (`ozzo-validation`) on request DTOs in `internal/dtos/` (file `*_dto.go`) with a `Validate()` method.
 4. **Resource Safety**:
    - Always ensure connections, response bodies, and lock releases are deferred cleanly (`defer`).
    - Workers and async subscribers must handle graceful cancellation via `ctx.Done()`.
@@ -85,9 +92,9 @@ This document defines the architectural invariants, conventions, and workflows f
 
 ### Adding a New Entity & CRUD Feature
 1. **Migration**: Run `make migrate-create name=create_<entity>_table` and write `.up.sql` & `.down.sql`.
-2. **Model**: Create entity struct embedding `models.BaseModel` in `internal/models/`.
+2. **Model**: Create entity struct embedding `models.BaseModel` in `internal/models/<entity>_model.go`.
 3. **Repository**: Define interface and GORM queries in `internal/repositories/`.
-4. **DTO & Validation**: Define payload structs in `internal/dtos/` with `Validate()` methods.
+4. **DTO & Validation**: Define payload structs in `internal/dtos/<entity>_dto.go` with `Validate()` methods (validation rules in `internal/validations/<entity>_validation.go` when extracted).
 5. **Service**: Define interface & business implementation in `internal/services/`.
 6. **Controller**: Add handler method in `internal/controllers/`.
 7. **Routes**: Register path, HTTP method, and auth middlewares in `internal/routes/routes.yaml`.

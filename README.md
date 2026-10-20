@@ -83,17 +83,29 @@ The boilerplate adheres strictly to **Clean Architecture** and idiomatic Go desi
     ├── config/             # Environment variable parsing and validation
     ├── constants/          # Application-wide error codes, statuses, and response constants
     ├── controllers/        # HTTP handlers parsing requests and rendering JSON responses
-    ├── dtos/               # Request payloads and API response definitions
+    ├── dtos/               # Request payloads and API response definitions (*_dto.go)
     ├── middlewares/        # Middlewares (CORS, Rate Limiter, JWT Auth, Basic Auth, Client Meta, Logger, Recovery)
-    ├── models/             # Domain entities and base models (BaseModel, JSONMap)
+    ├── models/             # Domain entities and base models (*_model.go, e.g. BaseModel, JSONMap)
     ├── payload/            # Worker message payloads (Id, MustParse, domain payloads)
     ├── pkg/                # Reusable packages (AppError, Context Metadata, JWT utilities, Migration)
     ├── repositories/       # Data access layer interfacing with GORM & Redis
     ├── routes/             # YAML-based route registration (routes.yaml) and engine setup
     ├── services/           # Core business logic orchestration (decoupled ports)
-    ├── validations/        # Struct input validations using Ozzo-Validation
+    ├── validations/        # Struct input validations using Ozzo-Validation (*_validation.go)
     └── workers/            # Background queue subscribers and worker pool orchestration
 ```
+
+### File Naming Conventions
+
+To keep each layer's files self-describing, files in these packages carry a mandatory role suffix (applied to every file in the package, shared/base files included):
+
+| Package | Suffix | Examples |
+|---------|--------|----------|
+| `internal/dtos/` | `*_dto.go` | `recording_dto.go`, `response_dto.go`, `pagination_dto.go` |
+| `internal/models/` | `*_model.go` | `recording_model.go`, `base_model.go` |
+| `internal/validations/` | `*_validation.go` | `recording_validation.go` |
+
+Test files append the suffix before `_test.go` (e.g. `recording_dto_test.go`).
 
 ---
 
