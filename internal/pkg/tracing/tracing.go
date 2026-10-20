@@ -60,9 +60,10 @@ func Init(ctx context.Context, cfg Config) (ShutdownFunc, error) {
 		return noopShutdown, err
 	}
 
+	// resource.New may return a usable partial resource alongside a non-fatal
+	// detector error; keep it, and only fall back to the default if nothing came back.
 	res, err := newResource(ctx, cfg)
-	if err != nil {
-		// Best-effort: still trace with a minimal resource rather than failing boot.
+	if err != nil && res == nil {
 		res = resource.Default()
 	}
 
@@ -112,14 +113,25 @@ func newExporter(ctx context.Context, kind string, cfg Config) (sdktrace.SpanExp
 	}
 }
 
-// newResource describes the service emitting the telemetry.
+// newResource describes the service emitting the telemetry. It enriches the
+// service identity (name/version/environment) with auto-detected host, process
+// and telemetry-SDK attributes and any OTEL_RESOURCE_ATTRIBUTES from the
+// environment, so that in multi-replica deployments each instance is
+// distinguishable in the tracing backend.
 func newResource(ctx context.Context, cfg Config) (*resource.Resource, error) {
 	serviceName := strings.TrimSpace(cfg.ServiceName)
 	if serviceName == "" {
 		serviceName = "code-base-golang"
 	}
 
+	// resource.New already merges the provided detectors onto the SDK default
+	// resource (telemetry.sdk.*), so no manual merge with resource.Default() is
+	// needed. On a non-fatal detector error it still returns a usable resource.
 	return resource.New(ctx,
+		resource.WithFromEnv(),      // OTEL_RESOURCE_ATTRIBUTES / OTEL_SERVICE_NAME
+		resource.WithTelemetrySDK(), // telemetry.sdk.{name,language,version}
+		resource.WithHost(),         // host.name
+		resource.WithProcess(),      // process.pid, executable, runtime, etc.
 		resource.WithAttributes(
 			semconv.ServiceName(serviceName),
 			semconv.ServiceVersion(cfg.Version),
