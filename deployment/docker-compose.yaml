@@ -65,7 +65,7 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:latest
+    image: nbsbayu/minio:latest
     container_name: code-base-golang-minio
     command: server /data --console-address ":9001"
     env_file:
