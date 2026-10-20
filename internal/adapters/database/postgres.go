@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -86,13 +87,25 @@ func NewPostgres(cfg config.Config) (*Postgres, error) {
 }
 
 // RunMigrations executes database migrations from the migrations directory using golang-migrate.
+// If the migrations directory contains no migration files, it is treated as a no-op so a fresh
+// project (or one without schema changes yet) can boot cleanly.
 func RunMigrations(sqlDB *sql.DB) error {
+	migrationsDir := findMigrationsDir()
+
+	hasMigrations, err := hasMigrationFiles(migrationsDir)
+	if err != nil {
+		return fmt.Errorf("failed to inspect migrations directory %q: %w", migrationsDir, err)
+	}
+	if !hasMigrations {
+		log.Printf("no migration files found in %q, skipping migrations", migrationsDir)
+		return nil
+	}
+
 	driver, err := postgres.WithInstance(sqlDB, &postgres.Config{})
 	if err != nil {
 		return fmt.Errorf("failed to create postgres migrate driver: %w", err)
 	}
 
-	migrationsDir := findMigrationsDir()
 	sourceUri := "file://" + migrationsDir
 
 	m, err := migrate.NewWithDatabaseInstance(sourceUri, "postgres", driver)
@@ -105,6 +118,15 @@ func RunMigrations(sqlDB *sql.DB) error {
 	}
 
 	return nil
+}
+
+// hasMigrationFiles reports whether dir contains at least one golang-migrate "*.up.sql" file.
+func hasMigrationFiles(dir string) (bool, error) {
+	matches, err := filepath.Glob(filepath.Join(dir, "*.up.sql"))
+	if err != nil {
+		return false, err
+	}
+	return len(matches) > 0, nil
 }
 
 // findMigrationsDir locates the migrations directory searching upward from current working directory.
