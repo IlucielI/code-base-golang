@@ -109,8 +109,20 @@ func initMigrate(cfg config.Config) (*migrate.Migrate, error) {
 	return migrate.New(sourceURL, databaseURL)
 }
 
+// hasMigrationFiles reports whether the migrations directory holds at least one
+// golang-migrate "*.up.sql" file. A fresh project without migrations is valid.
+func hasMigrationFiles() bool {
+	matches, err := filepath.Glob(filepath.Join(FindMigrationsDir(), "*.up.sql"))
+	return err == nil && len(matches) > 0
+}
+
 // Up applies pending database migrations. Limit <= 0 applies all pending.
 func Up(cfg config.Config, limit int) error {
+	if !hasMigrationFiles() {
+		fmt.Println("No migration files found, skipping migrations.")
+		return nil
+	}
+
 	m, err := initMigrate(cfg)
 	if err != nil {
 		return fmt.Errorf("migration initialization failed: %w", err)
