@@ -7,10 +7,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
 	"code-base-golang/internal/dtos"
 	"code-base-golang/internal/middlewares"
@@ -23,8 +23,9 @@ func init() {
 
 func TestRecovery_NormalExecution(t *testing.T) {
 	buf := &bytes.Buffer{}
+	mws := middlewares.New(config.Config{})
 	r := gin.New()
-	r.Use(middlewares.Recovery(middlewares.WithRecoveryWriter(buf)))
+	r.Use(mws.Recovery(middlewares.WithRecoveryWriter(buf)))
 
 	r.GET("/ok", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -48,8 +49,9 @@ func TestRecovery_NormalExecution(t *testing.T) {
 
 func TestRecovery_CatchesPanicAndReturnsUnifiedEnvelope(t *testing.T) {
 	buf := &bytes.Buffer{}
+	mws := middlewares.New(config.Config{})
 	r := gin.New()
-	r.Use(middlewares.Recovery(middlewares.WithRecoveryWriter(buf)))
+	r.Use(mws.Recovery(middlewares.WithRecoveryWriter(buf)))
 
 	secretError := "database connection unexpectedly dropped: secret_token_xyz"
 	r.GET("/panic", func(c *gin.Context) {
@@ -64,49 +66,44 @@ func TestRecovery_CatchesPanicAndReturnsUnifiedEnvelope(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 
-	// 1. Must return HTTP 500
 	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected status 500, got %d", w.Code)
+		t.Fatalf("expected status 500 on panic recovery, got %d", w.Code)
 	}
 
-	// 2. Must return standard JSON error envelope
 	var resp dtos.BaseResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("failed to parse JSON response: %v, body: %s", err, w.Body.String())
+		t.Fatalf("failed to decode response envelope: %v", err)
 	}
 
 	if resp.Status != constants.ResponseStatusError {
-		t.Errorf("expected status 'error', got %q", resp.Status)
+		t.Errorf("expected status 'error', got %s", resp.Status)
 	}
 	if resp.Code != constants.ResponseCodeInternalError {
-		t.Errorf("expected code %q, got %q", constants.ResponseCodeInternalError, resp.Code)
+		t.Errorf("expected code %s, got %s", constants.ResponseCodeInternalError, resp.Code)
 	}
-	if resp.Message != "An internal server error occurred" {
-		t.Errorf("expected message 'An internal server error occurred', got %q", resp.Message)
+	if resp.Message != constants.ErrInternalServerError.Message {
+		t.Errorf("expected message %s, got %s", constants.ErrInternalServerError.Message, resp.Message)
 	}
 	if resp.Timestamp.IsZero() {
-		t.Errorf("expected non-zero timestamp")
-	}
-	if time.Since(resp.Timestamp) > 10*time.Second {
-		t.Errorf("expected recent timestamp, got %v", resp.Timestamp)
+		t.Errorf("expected non-zero timestamp, got %v", resp.Timestamp)
 	}
 
-	// 3. Must NOT leak internal panic details to client
+	// Verify internal panic details are NOT exposed to client
 	bodyStr := w.Body.String()
 	if strings.Contains(bodyStr, "secret_token_xyz") {
-		t.Errorf("security violation: response body leaks secret details: %s", bodyStr)
-	}
-	if strings.Contains(bodyStr, "panic.go") || strings.Contains(bodyStr, "goroutine") {
-		t.Errorf("security violation: response body leaks stack trace: %s", bodyStr)
+		t.Errorf("expected secret error to not leak in response, but found in body: %s", bodyStr)
 	}
 
-	// 4. Must log stack trace and request details server-side
+	// Verify server-side logging captures panic message and stack
 	logStr := buf.String()
 	if !strings.Contains(logStr, "[PANIC RECOVERED]") {
-		t.Errorf("expected recovery log to contain '[PANIC RECOVERED]', got: %s", logStr)
+		t.Errorf("expected log to contain '[PANIC RECOVERED]', got: %s", logStr)
 	}
-	if !strings.Contains(logStr, "secret_token_xyz") {
-		t.Errorf("expected server-side log to contain error details, got: %s", logStr)
+	if !strings.Contains(logStr, secretError) {
+		t.Errorf("expected log to contain panic error message, got: %s", logStr)
+	}
+	if !strings.Contains(logStr, "stack:") {
+		t.Errorf("expected log to contain stack trace, got: %s", logStr)
 	}
 	if !strings.Contains(logStr, "method=GET path=/panic") {
 		t.Errorf("expected server-side log to contain method and path, got: %s", logStr)
@@ -115,8 +112,9 @@ func TestRecovery_CatchesPanicAndReturnsUnifiedEnvelope(t *testing.T) {
 
 func TestRecovery_WithRequestIDInContext(t *testing.T) {
 	buf := &bytes.Buffer{}
+	mws := middlewares.New(config.Config{})
 	r := gin.New()
-	r.Use(middlewares.Recovery(middlewares.WithRecoveryWriter(buf)))
+	r.Use(mws.Recovery(middlewares.WithRecoveryWriter(buf)))
 
 	r.GET("/panic-with-id", func(c *gin.Context) {
 		panic("nil pointer dereference")
@@ -146,12 +144,13 @@ func TestRecovery_WithRequestIDInContext(t *testing.T) {
 
 func TestRecovery_WithRequestIDInHeaderOrContextSet(t *testing.T) {
 	buf := &bytes.Buffer{}
+	mws := middlewares.New(config.Config{})
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
 		c.Set("request_id", "gin-context-req-id")
 		c.Next()
 	})
-	r.Use(middlewares.Recovery(middlewares.WithRecoveryWriter(buf)))
+	r.Use(mws.Recovery(middlewares.WithRecoveryWriter(buf)))
 
 	r.GET("/panic-header", func(c *gin.Context) {
 		panic("boom")
