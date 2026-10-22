@@ -93,6 +93,13 @@ This document defines the architectural invariants, conventions, and workflows f
      - `controllers` consume `*Request`/`*Query` (bind + validate) and emit `*Data`.
      - `services` accept `*Request`/`*Query` as use-case input and build `*Data` from domain models.
      - `repositories` **MUST NEVER** import `internal/dtos`. They operate on `internal/models` entities plus primitives or local filter types (e.g. a `RoleFilter` defined in `repositories`). Transport shapes never leak into the persistence layer.
+0b. **Repository Filter Conventions (MANDATORY)**:
+   - Query filters used by repositories live directly inside `internal/repositories/` — **NEVER** in a sub-package (e.g. no `repositories/filters/`).
+   - Common pagination and sorting parameters use shared types in `internal/repositories/filter.go`:
+     - `repositories.PaginationFilter` (with constructor `NewPaginationFilter(page, limit)`)
+     - `repositories.SortFilter` (with helper `OrderClause(fallback...)`)
+   - Domain-specific filter structs live in their respective repository files (e.g. `UserFilter` in `internal/repositories/user_repository.go`) embedding `PaginationFilter` and/or `SortFilter`.
+   - Services convert transport queries (`dtos.<Entity>ListQuery`) into `repositories.<Entity>Filter` before invoking the repository.
 1. **Standard Error Envelope & Error Handling by Layer**:
    - Use `pkg/apperror.AppError` for domain and HTTP errors.
    - Format all HTTP responses using the standardized envelope in `internal/dtos/response_dto.go` (`status`, `code`, `message`, `data`, `errors`, `timestamp`).
