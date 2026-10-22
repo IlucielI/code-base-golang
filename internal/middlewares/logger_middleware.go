@@ -1,9 +1,8 @@
 package middlewares
 
 import (
-	"encoding/json"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -11,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"code-base-golang/internal/constants"
 	"code-base-golang/internal/pkg/ctxmeta"
+	"code-base-golang/internal/pkg/logger"
 )
 
 // LogEntry defines the JSON structure emitted for each HTTP access log.
@@ -49,7 +48,7 @@ func (m *Middlewares) Logger(opts ...LoggerOption) gin.HandlerFunc {
 	return m.StructuredLogger(opts...)
 }
 
-// StructuredLogger returns a Gin middleware that outputs structured JSON logs for each HTTP request.
+// StructuredLogger returns a Gin middleware that outputs structured logs for each HTTP request using slog.
 func (m *Middlewares) StructuredLogger(opts ...LoggerOption) gin.HandlerFunc {
 	cfg := &loggerOptions{
 		writer: os.Stdout,
@@ -57,6 +56,8 @@ func (m *Middlewares) StructuredLogger(opts ...LoggerOption) gin.HandlerFunc {
 	for _, opt := range opts {
 		opt(cfg)
 	}
+
+	appLogger := logger.New(m.cfg, logger.WithWriter(cfg.writer), logger.WithLevel(slog.LevelDebug))
 
 	return func(c *gin.Context) {
 		start := time.Now()
@@ -83,34 +84,21 @@ func (m *Middlewares) StructuredLogger(opts ...LoggerOption) gin.HandlerFunc {
 		latency := time.Since(start)
 		statusCode := c.Writer.Status()
 
-		var level string
+		slogLevel := slog.LevelInfo
 		switch {
 		case statusCode >= http.StatusInternalServerError:
-			level = constants.LogLevelError
+			slogLevel = slog.LevelError
 		case statusCode >= http.StatusBadRequest:
-			level = constants.LogLevelWarn
-		default:
-			level = constants.LogLevelInfo
+			slogLevel = slog.LevelWarn
 		}
 
-		entry := LogEntry{
-			Level:      level,
-			Timestamp:  time.Now().UTC().Format(time.RFC3339),
-			RequestID:  reqID,
-			Method:     c.Request.Method,
-			Path:       c.Request.URL.Path,
-			StatusCode: statusCode,
-			Latency:    latency.String(),
-			LatencyMs:  latency.Milliseconds(),
-			ClientIP:   c.ClientIP(),
-		}
-
-		data, err := json.Marshal(entry)
-		if err == nil {
-			data = append(data, '\n')
-			if n, writeErr := cfg.writer.Write(data); writeErr != nil {
-				log.Printf("failed to write structured log (bytes: %d): %v", n, writeErr)
-			}
-		}
+		appLogger.Log(c.Request.Context(), slogLevel, "HTTP request completed",
+			slog.String("method", c.Request.Method),
+			slog.String("path", c.Request.URL.Path),
+			slog.Int("status_code", statusCode),
+			slog.String("latency", latency.String()),
+			slog.Int64("latency_ms", latency.Milliseconds()),
+			slog.String("client_ip", c.ClientIP()),
+		)
 	}
 }
