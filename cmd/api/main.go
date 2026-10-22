@@ -16,6 +16,7 @@ import (
 	"code-base-golang/internal/adapters/smtp"
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/controllers"
+	"code-base-golang/internal/pkg/logger"
 	"code-base-golang/internal/pkg/migration"
 	"code-base-golang/internal/pkg/tracing"
 	"code-base-golang/internal/repositories"
@@ -35,6 +36,7 @@ func main() {
 	}
 
 	cfg := config.Load()
+	logger.Init(cfg)
 
 	// Initialize OpenTelemetry tracing (opt-in via OTEL_TRACING_ENABLED).
 	tracingShutdown, err := tracing.Init(context.Background(), tracing.Config{
