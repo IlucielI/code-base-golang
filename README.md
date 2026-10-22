@@ -81,12 +81,12 @@ The boilerplate adheres strictly to **Clean Architecture** and idiomatic Go desi
     │   ├── s3/             # MinIO / AWS S3 storage adapter
     │   └── smtp/           # SMTP email dispatcher adapter
     ├── config/             # Environment variable parsing and validation
-    ├── constants/          # Application-wide error codes, statuses, and response constants
+    ├── constants/          # Application-wide error codes, statuses, token types, user roles, log levels, and response constants
     ├── controllers/        # HTTP handlers parsing requests and rendering JSON responses
     ├── dtos/               # Request payloads and API response definitions (*_dto.go)
-    ├── middlewares/        # Middlewares (CORS, Rate Limiter, JWT Auth, Basic Auth, Client Meta, Logger, Recovery)
+    ├── middlewares/        # Middlewares (CORS, Rate Limiter, Auth, Anon Auth, Optional Auth, Basic Auth, Permissions, Client Meta, Logger, Recovery, Body Limit)
     ├── models/             # Domain entities and base models (*_model.go, e.g. BaseModel, JSONMap)
-    ├── pkg/                # Reusable packages (AppError, Context Metadata, JWT utilities, Migration)
+    ├── pkg/                # Reusable packages (AppError, Context Metadata, JWT utilities, Migration, String utilities `strutil`)
     ├── queue/              # Queue message payloads (Id, MustParse, domain payloads)
     ├── repositories/       # Data access layer interfacing with GORM & Redis
     ├── routes/             # YAML-based route registration (routes.yaml) and engine setup
@@ -107,7 +107,7 @@ To keep each layer's files self-describing, files in these packages carry a mand
 
 Test files append the suffix before `_test.go` (e.g. `recording_dto_test.go`).
 
-Other packages name files by topic rather than role — e.g. `internal/constants/` uses one file per topic/domain (`error.go`, `response.go`, `worker.go`, `<domain>.go`), not `*_constant.go`.
+Other packages name files by topic rather than role — e.g. `internal/constants/` uses one file per topic/domain (`error.go`, `response.go`, `worker.go`, `auth.go`, `logger.go`, `<domain>.go`), not `*_constant.go`. Magic strings and numbers for token types, user roles, and log levels are defined in `constants/`.
 
 ### Request Validation
 
@@ -300,20 +300,25 @@ When `AUTO_MIGRATE=true` is set in `.env`:
 - **Scalar Interactive UI**: [`http://localhost:8080/docs`](http://localhost:8080/docs)
 - **OpenAPI 3.0 Specification**: [`http://localhost:8080/openapi.yaml`](http://localhost:8080/openapi.yaml)
 
+> [!NOTE]
+> The documentation endpoints are secured with HTTP Basic Authentication via declarative route middleware (`middlewares: [basic_auth]` in `routes.yaml`). Configure credentials via `BASIC_AUTH_USERNAME` and `BASIC_AUTH_PASSWORD` in your `.env`.
+
 ---
 
 ## Built-in Infrastructure & Middlewares
 
 | Middleware / Component | Description |
 |------------------------|-------------|
-| **Structured Logging** | Logs incoming HTTP requests and assigns/propagates `X-Request-ID`. |
-| **Panic Recovery** | Catches unhandled panics and outputs standardized `500 Internal Server Error` payloads. |
-| **CORS Middleware** | Preflight `OPTIONS` (204 No Content), configurable origins, methods, and headers. |
+| **Structured Logging** | Emits JSON logs (`LogLevelError`, `LogLevelWarn`, `LogLevelInfo`), tracks request latency, and assigns/propagates `X-Request-ID`. |
+| **Panic Recovery** | Catches unhandled panics, logs stack traces server-side, and outputs standardized safe HTTP 500 JSON error envelopes (`constants.ErrInternalServerError`). |
+| **Declarative Route Auth** | Dispatches `auth` (standard user tokens), `anon_auth` (guest tokens), or `optional_auth` (opt-in context injection) directly from `routes.yaml`. |
+| **Permission Guard (RBAC)** | Enforces granular route permissions (`permission: "resource:action"`) via `RequirePermission`, supporting wildcard (`*`) super-admin roles. |
+| **Basic Authentication** | Constant-time credential matching (`BasicAuth`) used for protecting API documentation and internal endpoints. |
+| **Body Size Limiter** | Restricts maximum allowed request payload size to prevent memory exhaustion and DoS attacks. |
+| **CORS Middleware** | Preflight `OPTIONS` (204 No Content), configurable origins, methods, headers, and credentials. |
 | **Rate Limiter** | In-memory token bucket rate limiting per client IP with background garbage collection. |
-| **Client Metadata** | Extracts client IP and User-Agent into request context (`ctxmeta`). |
-| **JWT Authentication** | Secure token generation, claim extraction, and validation helpers in `pkg/jwt`. |
-| **Basic Authentication** | Constant-time comparison HTTP Basic Auth middleware. |
-| **Decoupled Ports** | Abstract interfaces in `services` for `FileStorage`, `EventPublisher`, `EventSubscriber`, and `EmailSender`. |
+| **Client Metadata** | Extracts client IP and User-Agent into standard `context.Context` (`ctxmeta`). |
+| **Decoupled Ports** | Abstract consumer interfaces in `services` (`FileStorage`, `EventPublisher`, `EmailSender`) and `workers` (`EventSubscriber`). |
 
 ---
 
