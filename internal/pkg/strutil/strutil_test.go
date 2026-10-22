@@ -27,3 +27,20 @@ func TestLikePattern(t *testing.T) {
 		}
 	}
 }
+
+func TestToPascalCase(t *testing.T) {
+	cases := map[string]string{
+		"":              "",
+		"   ":           "",
+		"auth":          "Auth",
+		"optional_auth": "OptionalAuth",
+		"client_meta":   "ClientMeta",
+		"user_id_pk":    "UserIdPk",
+		"alreadyPascal": "AlreadyPascal",
+	}
+	for in, want := range cases {
+		if got := ToPascalCase(in); got != want {
+			t.Errorf("ToPascalCase(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
