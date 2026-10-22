@@ -27,7 +27,7 @@ func New(cfg config.Config, svc *services.Service, sub EventSubscriber) *WorkerS
 
 // RegisterWorker registers all worker subscriptions to Domain Events.
 func (w *WorkerServer) RegisterWorker() {
-	if w == nil || w.sub == nil {
+	if w.sub == nil {
 		return
 	}
 
