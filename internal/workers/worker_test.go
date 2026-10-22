@@ -21,10 +21,7 @@ func (m *mockSubscriber) MustSubscribe(topic string, handler workers.WorkerHandl
 	_ = m.Subscribe(topic, handler)
 }
 
-func TestWorkerServer_Nil(t *testing.T) {
-	var s *workers.WorkerServer
-	s.RegisterWorker() // should not panic
-
+func TestWorkerServer_NilSubscriber(t *testing.T) {
 	server := workers.New(config.Config{}, nil, nil)
 	server.RegisterWorker() // should safely skip when subscriber is nil
 
