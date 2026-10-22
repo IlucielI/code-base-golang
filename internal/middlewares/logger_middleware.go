@@ -42,6 +42,16 @@ func WithWriter(w io.Writer) LoggerOption {
 	}
 }
 
+// Logger returns the structured logger middleware from the Middlewares container.
+func (m *Middlewares) Logger(opts ...LoggerOption) gin.HandlerFunc {
+	return StructuredLogger(opts...)
+}
+
+// StructuredLogger returns the structured logger middleware from the Middlewares container.
+func (m *Middlewares) StructuredLogger(opts ...LoggerOption) gin.HandlerFunc {
+	return StructuredLogger(opts...)
+}
+
 // StructuredLogger returns a Gin middleware that outputs structured JSON logs for each HTTP request.
 func StructuredLogger(opts ...LoggerOption) gin.HandlerFunc {
 	cfg := &loggerOptions{
