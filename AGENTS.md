@@ -16,6 +16,7 @@ This document defines the architectural invariants, conventions, and workflows f
 - **Schema Migrations**: `github.com/golang-migrate/migrate/v4`
 - **Validation**: `github.com/go-ozzo/ozzo-validation/v4`
 - **Documentation**: OpenAPI 3.0 + Scalar UI (`/docs`, `/openapi.yaml`) embedded via `//go:embed`
+- **Linter & Quality**: `golangci-lint` (`.golangci.yml`) with GitHub Actions & GitLab CI pipelines
 
 ---
 
@@ -61,14 +62,15 @@ This document defines the architectural invariants, conventions, and workflows f
      - `fix/<issue-name>` for bug fixes
      - `chore/<task-name>` for configuration, docs, or maintenance
      - `refactor/<target>` for code restructuring
-3. **Atomic Commits**:
+3. **Pre-Commit Verification & Atomic Commits (MANDATORY)**:
+   - **MANDATORY PRE-COMMIT CHECKS**: Before committing any changes, the assistant **MUST** run `make check` (or `make lint`, `make test`, and `make build`). Commits **MUST NEVER** be created if static analysis / linting fails or if any unit test regresses.
    - Commits must be small, focused, and scoped to a single logical change.
    - **NEVER** combine multiple unrelated changes in a single commit.
-   - Follow Conventional Commits: `feat(...)`, `fix(...)`, `refactor(...)`, `build(...)`, `chore(...)`, `test(...)`.
+   - Follow Conventional Commits: `feat(...)`, `fix(...)`, `refactor(...)`, `build(...)`, `chore(...)`, `test(...)`, `ci(...)`, `docs(...)`.
 4. **Pull Request (PR) Mandate**:
    - Push feature branch to origin: `git push -u origin <branch-name>`.
    - Open a PR to `main` using `gh pr create --base main --head <branch-name> --title "..." --body "..."`.
-   - Verify `make test` and `make build` pass with zero regressions.
+   - Verify `make check` (`make lint`, `make test`, `make build`) passes with zero regressions and zero linter warnings.
    - **MERGE REQUIRES USER APPROVAL**: Leave the PR **OPEN** after creation. The AI assistant must **NEVER** run `gh pr merge` autonomously. The assistant is allowed to merge only after asking for and receiving explicit approval from the USER.
 
 ---
@@ -226,11 +228,17 @@ This document defines the architectural invariants, conventions, and workflows f
 
 ---
 
-## 6. Development & Testing Commands
+## 6. Development & Quality Assurance Commands
 
-Always run tests to verify zero regressions before concluding tasks:
+Always run quality checks to verify zero regressions and clean static analysis before committing and concluding tasks:
 
 ```bash
+# Complete pre-commit check (lint + unit tests + binary build)
+make check
+
+# Run static analysis linter (golangci-lint)
+make lint
+
 # Run all unit tests
 make test
 # or: go test -v ./...
@@ -238,8 +246,14 @@ make test
 # Build binary
 make build
 
+# Build three-tier container images
+make build-docker
+
 # Start infrastructure services (PostgreSQL, Redis, RabbitMQ, MinIO, Mailpit)
 make docker-up
+
+# Stop all background Docker services
+make docker-down
 
 # Database migrations
 make migrate-create name=<migration_name>
