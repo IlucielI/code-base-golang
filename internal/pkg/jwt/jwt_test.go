@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"code-base-golang/internal/config"
+	"code-base-golang/internal/constants"
 )
 
 func TestGenerateTokenPair_And_Validate(t *testing.T) {
@@ -32,8 +33,8 @@ func TestGenerateTokenPair_And_Validate(t *testing.T) {
 	if pair.AccessToken == "" || pair.RefreshToken == "" {
 		t.Fatal("expected non-empty access and refresh tokens")
 	}
-	if pair.TokenType != "Bearer" {
-		t.Errorf("expected token type Bearer, got %s", pair.TokenType)
+	if pair.TokenType != constants.TokenTypeBearer {
+		t.Errorf("expected token type %s, got %s", constants.TokenTypeBearer, pair.TokenType)
 	}
 	if pair.ExpiresIn != 86400 {
 		t.Errorf("expected 86400 seconds access expiry, got %d", pair.ExpiresIn)
@@ -56,8 +57,8 @@ func TestGenerateTokenPair_And_Validate(t *testing.T) {
 	if accessClaims.SessionID != sessionID {
 		t.Errorf("expected session ID %s, got %s", sessionID, accessClaims.SessionID)
 	}
-	if accessClaims.TokenType != "access" {
-		t.Errorf("expected token type access, got %s", accessClaims.TokenType)
+	if accessClaims.TokenType != constants.TokenTypeAccess {
+		t.Errorf("expected token type %s, got %s", constants.TokenTypeAccess, accessClaims.TokenType)
 	}
 
 	// Validate Refresh Token
@@ -68,8 +69,8 @@ func TestGenerateTokenPair_And_Validate(t *testing.T) {
 	if refreshClaims.UserID != userID {
 		t.Errorf("expected user ID %v, got %v", userID, refreshClaims.UserID)
 	}
-	if refreshClaims.TokenType != "refresh" {
-		t.Errorf("expected token type refresh, got %s", refreshClaims.TokenType)
+	if refreshClaims.TokenType != constants.TokenTypeRefresh {
+		t.Errorf("expected token type %s, got %s", constants.TokenTypeRefresh, refreshClaims.TokenType)
 	}
 
 	// Invalid signature verification
@@ -90,5 +91,38 @@ func TestGenerateTokenPair_And_Validate(t *testing.T) {
 	_, err = ValidateToken(cfg, expiredPair.AccessToken)
 	if err == nil {
 		t.Fatal("expected error validating expired token, got nil")
+	}
+}
+
+func TestGenerateAnonToken(t *testing.T) {
+	cfg := config.Config{
+		AppName:             "code-base-golang-test",
+		JWTSecret:           "test-secret-key-12345",
+		JWTAccessExpiration: 24 * time.Hour,
+	}
+
+	tokenResp, err := GenerateAnonToken(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error generating anon token: %v", err)
+	}
+	if tokenResp == nil || tokenResp.AccessToken == "" {
+		t.Fatal("expected non-empty anon token")
+	}
+	if tokenResp.TokenType != constants.TokenTypeBearer {
+		t.Errorf("expected token type %s, got %s", constants.TokenTypeBearer, tokenResp.TokenType)
+	}
+
+	claims, err := ValidateToken(cfg, tokenResp.AccessToken)
+	if err != nil {
+		t.Fatalf("unexpected error validating anon token: %v", err)
+	}
+	if claims.TokenType != constants.TokenTypeAnon {
+		t.Errorf("expected token type %s, got %s", constants.TokenTypeAnon, claims.TokenType)
+	}
+	if claims.Role != constants.RoleAnonymous {
+		t.Errorf("expected role %s, got %s", constants.RoleAnonymous, claims.Role)
+	}
+	if claims.UserID == uuid.Nil {
+		t.Error("expected non-nil guest user ID")
 	}
 }

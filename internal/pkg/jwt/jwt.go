@@ -29,7 +29,7 @@ func GenerateTokenPair(cfg config.Config, userID uuid.UUID, email string, sessio
 	accessExp := now.Add(cfg.JWTAccessExpiration)
 	refreshExp := now.Add(cfg.JWTRefreshExpiration)
 
-	assignedRole := "user"
+	assignedRole := constants.RoleUser
 	if len(role) > 0 && role[0] != "" {
 		assignedRole = role[0]
 	}
@@ -40,7 +40,7 @@ func GenerateTokenPair(cfg config.Config, userID uuid.UUID, email string, sessio
 		SessionID: sessionID,
 		Email:     email,
 		Role:      assignedRole,
-		TokenType: "access",
+		TokenType: constants.TokenTypeAccess,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			Issuer:    cfg.AppName,
@@ -59,7 +59,7 @@ func GenerateTokenPair(cfg config.Config, userID uuid.UUID, email string, sessio
 		UserID:    userID,
 		SessionID: sessionID,
 		Email:     email,
-		TokenType: "refresh",
+		TokenType: constants.TokenTypeRefresh,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
 			Issuer:    cfg.AppName,
@@ -76,7 +76,7 @@ func GenerateTokenPair(cfg config.Config, userID uuid.UUID, email string, sessio
 	return &dtos.TokenResponse{
 		AccessToken:      accessToken,
 		RefreshToken:     refreshToken,
-		TokenType:        "Bearer",
+		TokenType:        constants.TokenTypeBearer,
 		ExpiresIn:        int64(cfg.JWTAccessExpiration.Seconds()),
 		RefreshExpiresIn: int64(cfg.JWTRefreshExpiration.Seconds()),
 	}, nil
@@ -110,8 +110,8 @@ func GenerateAnonToken(cfg config.Config) (*dtos.TokenResponse, error) {
 
 	claims := CustomClaims{
 		UserID:    guestID,
-		Role:      "anonymous",
-		TokenType: "anon",
+		Role:      constants.RoleAnonymous,
+		TokenType: constants.TokenTypeAnon,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   guestID.String(),
 			Issuer:    cfg.AppName,
@@ -127,7 +127,7 @@ func GenerateAnonToken(cfg config.Config) (*dtos.TokenResponse, error) {
 
 	return &dtos.TokenResponse{
 		AccessToken: tokenStr,
-		TokenType:   "Bearer",
+		TokenType:   constants.TokenTypeBearer,
 		ExpiresIn:   int64(cfg.JWTAccessExpiration.Seconds()),
 	}, nil
 }
