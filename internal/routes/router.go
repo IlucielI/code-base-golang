@@ -13,6 +13,7 @@ import (
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/controllers"
 	"code-base-golang/internal/middlewares"
+	"code-base-golang/internal/pkg/strutil"
 )
 
 //go:embed routes.yaml
@@ -116,7 +117,7 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers) *gin.Engine {
 			if mwClean == "" {
 				continue
 			}
-			mwMethodName := toPascalCase(mwClean)
+			mwMethodName := strutil.ToPascalCase(mwClean)
 			mwMethod := mwsVal.MethodByName(mwMethodName)
 
 			if !mwMethod.IsValid() {
@@ -141,25 +142,4 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers) *gin.Engine {
 	}
 
 	return router
-}
-
-// toPascalCase converts snake_case or lowercase strings to PascalCase.
-// e.g. "auth" -> "Auth", "optional_auth" -> "OptionalAuth", "client_meta" -> "ClientMeta".
-func toPascalCase(s string) string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return ""
-	}
-	if !strings.Contains(s, "_") {
-		return strings.ToUpper(s[:1]) + s[1:]
-	}
-	parts := strings.Split(s, "_")
-	var b strings.Builder
-	for _, p := range parts {
-		if len(p) > 0 {
-			b.WriteString(strings.ToUpper(p[:1]))
-			b.WriteString(strings.ToLower(p[1:]))
-		}
-	}
-	return b.String()
 }

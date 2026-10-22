@@ -23,3 +23,24 @@ func LikePattern(query string) string {
 	}
 	return "%" + trimmed + "%"
 }
+
+// ToPascalCase converts snake_case or lowercase strings to PascalCase.
+// e.g. "auth" -> "Auth", "optional_auth" -> "OptionalAuth", "client_meta" -> "ClientMeta".
+func ToPascalCase(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if !strings.Contains(s, "_") {
+		return strings.ToUpper(s[:1]) + s[1:]
+	}
+	parts := strings.Split(s, "_")
+	var b strings.Builder
+	for _, p := range parts {
+		if len(p) > 0 {
+			b.WriteString(strings.ToUpper(p[:1]))
+			b.WriteString(strings.ToLower(p[1:]))
+		}
+	}
+	return b.String()
+}
