@@ -8,7 +8,9 @@ PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 ACTION="${ACTION:---load}"
 BUILDER="${BUILDER:-default}"
 REBUILD_BASE="${REBUILD_BASE:-false}"
+REBUILD_RUNTIME="${REBUILD_RUNTIME:-false}"
 BASE_IMAGE="code-base-golang-api-base:latest"
+RUNTIME_IMAGE="code-base-golang-api-runtime:latest"
 
 # 1. Build multi-arch base image if missing or forced
 if [ "$REBUILD_BASE" = "true" ] || ! docker image inspect "$BASE_IMAGE" >/dev/null 2>&1; then
@@ -24,7 +26,21 @@ else
   echo "==> Base image '$BASE_IMAGE' already exists. Skipping base build."
 fi
 
-# 2. Build multi-arch application image
+# 2. Build multi-arch runtime base image if missing or forced
+if [ "$REBUILD_RUNTIME" = "true" ] || ! docker image inspect "$RUNTIME_IMAGE" >/dev/null 2>&1; then
+  echo "==> Building multi-arch runtime base image (${PLATFORMS}) with tag: ${RUNTIME_IMAGE}..."
+  docker buildx build \
+    --builder "$BUILDER" \
+    --platform "$PLATFORMS" \
+    $ACTION \
+    -f deployment/Dockerfile.runtime \
+    -t "$RUNTIME_IMAGE" \
+    .
+else
+  echo "==> Runtime base image '$RUNTIME_IMAGE' already exists. Skipping runtime base build."
+fi
+
+# 3. Build multi-arch application image
 echo "==> Building multi-arch application image (${PLATFORMS}) with tag: ${IMAGE_TAG}..."
 
 docker buildx build \

@@ -7,7 +7,7 @@ This directory contains containerization files and Docker Compose configurations
 ## Table of Contents
 
 - [Overview & Architecture](#overview--architecture)
-- [Two-Stage Docker Build Strategy](#two-stage-docker-build-strategy)
+- [Three-Tier Docker Build Strategy](#three-tier-docker-build-strategy)
 - [Infrastructure Services & Ports](#infrastructure-services--ports)
 - [Quick Start](#quick-start)
 - [Database Auto-Migration in Docker](#database-auto-migration-in-docker)
@@ -18,30 +18,37 @@ This directory contains containerization files and Docker Compose configurations
 
 ## Overview & Architecture
 
-The container workflow is optimized using a **two-step Docker build strategy** that decouples heavy Go dependency downloading (`go.mod`/`go.sum`) from rapid application source code compilation:
+The container workflow is optimized using a **three-tier Docker build strategy** that decouples heavy Go dependency downloading (`go.mod`/`go.sum`) and runtime OS layer setup (Alpine packages, certificates, unprivileged user) from rapid application source code compilation:
 
 ```
-[ go.mod / go.sum ] ──────► Dockerfile.base ──────► code-base-golang-api-base:latest
-                                                               │
-[ App Source Code ] ──────► Dockerfile      ◄─────────────────┘
-                                  │
-                                  ▼
-                    code-base-golang-api:latest
+[ go.mod / go.sum ] ──────► Dockerfile.base    ──────► code-base-golang-api-base:latest
+                                                                   │
+[ App Source Code ] ──────► Dockerfile (builder) ◄─────────────────┘
+                                   │
+                                   ▼ (compiled binary)
+                                   │
+[ Alpine OS Base  ] ──────► Dockerfile.runtime ──────► code-base-golang-api-runtime:latest
+                                                                   │
+                            Dockerfile (runtime) ◄─────────────────┘
+                                   │
+                                   ▼
+                     code-base-golang-api:latest
 ```
 
 ---
 
-## Two-Stage Docker Build Strategy
+## Three-Tier Docker Build Strategy
 
-1. **Base Image (`Dockerfile.base`)**:
+1. **Go Dependencies Base Image (`Dockerfile.base`)**:
    - Downloads and pre-compiles all external Go modules into module cache.
    - **Only rebuild** when `go.mod` or `go.sum` changes.
-2. **Application Image (`Dockerfile`)**:
-   - Uses the cached local base image (`code-base-golang-api-base:latest`).
-   - Copies current source code and `/migrations`.
+2. **Minimal Runtime Base Image (`Dockerfile.runtime`)**:
+   - Pre-provisions minimal Alpine Linux environment with `ca-certificates`, `tzdata`, and the unprivileged `app` user/group.
+   - **Only rebuild** when base OS packages, security patches, or runtime users change.
+3. **Application Image (`Dockerfile`)**:
+   - Uses the cached local builder base (`code-base-golang-api-base:latest`) to compile the binary in seconds.
    - Injects build arguments (`APP_VERSION`, `GIT_HASH`).
-   - Compiles binary in seconds.
-   - Generates a lightweight, minimal Alpine Linux runtime image with non-root user.
+   - Packages the binary and `/migrations` directly onto `code-base-golang-api-runtime:latest`.
 
 ---
 
@@ -75,10 +82,13 @@ If you prefer explicit control:
 # Step 1: Build dependency base image
 ./deployment/build-base.sh
 
-# Step 2: Build API application image
+# Step 2: Build minimal runtime base image
+./deployment/build-runtime.sh
+
+# Step 3: Build API application image
 ./deployment/build-api.sh
 
-# Step 3: Start all containers in background
+# Step 4: Start all containers in background
 docker compose -f deployment/docker-compose.yaml up -d
 ```
 
@@ -136,5 +146,7 @@ docker compose -f deployment/docker-compose.yaml exec api /app/api migrate force
 | Script | Purpose |
 |--------|---------|
 | `build-base.sh` | Builds the Go dependencies base image (`Dockerfile.base`). Run when dependencies update. |
-| `build-api.sh` | Compiles source code against base image and outputs runtime Docker image (`Dockerfile`). |
-| `build.sh` | Smart build runner: automatically builds base image if not found, then compiles API. |
+| `build-runtime.sh` | Builds the minimal Alpine runtime base image (`Dockerfile.runtime`). Run when base packages/users update. |
+| `build-api.sh` | Compiles source code against base builder image and outputs runtime Docker image (`Dockerfile`). |
+| `build.sh` | Smart build runner: automatically builds base builder & runtime images if not found, then compiles API. |
+| `build-multiarch.sh` | Multi-architecture build runner using `docker buildx` for amd64/arm64. |
