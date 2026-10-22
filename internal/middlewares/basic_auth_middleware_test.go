@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
 	"code-base-golang/internal/dtos"
 )
@@ -19,9 +20,14 @@ func TestBasicAuthMiddleware(t *testing.T) {
 	expectedUser := "test-client"
 	expectedPass := "secret-key-123"
 
+	mws := New(config.Config{
+		BasicAuthUsername: expectedUser,
+		BasicAuthPassword: expectedPass,
+	})
+
 	newTestRouter := func() *gin.Engine {
 		r := gin.New()
-		r.Use(BasicAuth(expectedUser, expectedPass))
+		r.Use(mws.BasicAuth)
 		r.GET("/secure", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"status": "ok"})
 		})
