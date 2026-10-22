@@ -39,7 +39,7 @@ func (r *Repositories) Redis() *redis.Redis {
 
 // PingDB checks connectivity to Postgres via GORM's underlying sql.DB.
 func (r *Repositories) PingDB(ctx context.Context) error {
-	if r == nil || r.db == nil {
+	if r.db == nil {
 		return errors.New("database connection is nil")
 	}
 	sqlDB, err := r.db.DB()
@@ -51,7 +51,7 @@ func (r *Repositories) PingDB(ctx context.Context) error {
 
 // PingRedis checks connectivity to Redis.
 func (r *Repositories) PingRedis(ctx context.Context) error {
-	if r == nil || r.rdb == nil {
+	if r.rdb == nil {
 		return errors.New("redis connection is nil")
 	}
 	return r.rdb.Ping(ctx)
