@@ -17,9 +17,22 @@ const (
 
 // AuthUser represents authenticated user identity extracted from JWT and session.
 type AuthUser struct {
-	UserID    uuid.UUID
-	Email     string
-	SessionID string
+	UserID      uuid.UUID
+	Email       string
+	SessionID   string
+	Role        string
+	Permissions []string
+}
+
+// HasPermission reports whether the authenticated user holds the required permission
+// or has wildcard ("*") access.
+func (u AuthUser) HasPermission(permission string) bool {
+	for _, p := range u.Permissions {
+		if p == "*" || p == permission {
+			return true
+		}
+	}
+	return false
 }
 
 // WithAuthUser injects the authenticated user into the context.

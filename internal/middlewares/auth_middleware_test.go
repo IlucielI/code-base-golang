@@ -140,3 +140,164 @@ func TestAuthMiddleware(t *testing.T) {
 		}
 	}
 }
+
+func TestOptionalAuth(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+	validUser := &ctxmeta.AuthUser{
+		UserID: userID,
+		Email:  "user@example.com",
+	}
+
+	validator := &mockAuthValidator{
+		authenticateFn: func(ctx context.Context, tokenStr string) (*ctxmeta.AuthUser, error) {
+			if tokenStr == "good-token" {
+				return validUser, nil
+			}
+			return nil, constants.ErrInvalidToken
+		},
+	}
+
+	// 1. Without header - passes through as guest
+	{
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(OptionalAuth(validator))
+		var capturedUser ctxmeta.AuthUser
+		var hasUser bool
+		r.GET("/optional", func(ctx *gin.Context) {
+			capturedUser, hasUser = ctxmeta.GetAuthUser(ctx.Request.Context())
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/optional", nil)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", w.Code)
+		}
+		if hasUser {
+			t.Fatalf("expected no user on guest request, got %+v", capturedUser)
+		}
+	}
+
+	// 2. With valid header - authenticates
+	{
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(OptionalAuth(validator))
+		var capturedUser ctxmeta.AuthUser
+		var hasUser bool
+		r.GET("/optional", func(ctx *gin.Context) {
+			capturedUser, hasUser = ctxmeta.GetAuthUser(ctx.Request.Context())
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/optional", nil)
+		c.Request.Header.Set("Authorization", "Bearer good-token")
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", w.Code)
+		}
+		if !hasUser || capturedUser.UserID != userID {
+			t.Fatalf("expected authenticated user, got hasUser=%v, user=%+v", hasUser, capturedUser)
+		}
+	}
+}
+
+func TestRequirePermission(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	userID := uuid.New()
+
+	// 1. Unauthenticated request -> 401
+	{
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(RequirePermission("users:read"))
+		r.GET("/perm-test", func(ctx *gin.Context) {
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/perm-test", nil)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401 on unauthenticated request, got %d", w.Code)
+		}
+	}
+
+	// 2. Authenticated but missing permission -> 403
+	{
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(func(ctx *gin.Context) {
+			ctx.Request = ctx.Request.WithContext(ctxmeta.WithAuthUser(ctx.Request.Context(), ctxmeta.AuthUser{
+				UserID:      userID,
+				Email:       "user@example.com",
+				Role:        "member",
+				Permissions: []string{"reports:read"},
+			}))
+			ctx.Next()
+		})
+		r.Use(RequirePermission("users:read"))
+		r.GET("/perm-test", func(ctx *gin.Context) {
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/perm-test", nil)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusForbidden {
+			t.Fatalf("expected 403 on missing permission, got %d", w.Code)
+		}
+	}
+
+	// 3. Authenticated with matching permission -> 200
+	{
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(func(ctx *gin.Context) {
+			ctx.Request = ctx.Request.WithContext(ctxmeta.WithAuthUser(ctx.Request.Context(), ctxmeta.AuthUser{
+				UserID:      userID,
+				Email:       "user@example.com",
+				Role:        "member",
+				Permissions: []string{"users:read"},
+			}))
+			ctx.Next()
+		})
+		r.Use(RequirePermission("users:read"))
+		r.GET("/perm-test", func(ctx *gin.Context) {
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/perm-test", nil)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200 on matching permission, got %d", w.Code)
+		}
+	}
+
+	// 4. Authenticated with wildcard permission -> 200
+	{
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(func(ctx *gin.Context) {
+			ctx.Request = ctx.Request.WithContext(ctxmeta.WithAuthUser(ctx.Request.Context(), ctxmeta.AuthUser{
+				UserID:      userID,
+				Email:       "admin@example.com",
+				Role:        "admin",
+				Permissions: []string{"*"},
+			}))
+			ctx.Next()
+		})
+		r.Use(RequirePermission("users:delete"))
+		r.GET("/perm-test", func(ctx *gin.Context) {
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/perm-test", nil)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200 on wildcard permission, got %d", w.Code)
+		}
+	}
+}

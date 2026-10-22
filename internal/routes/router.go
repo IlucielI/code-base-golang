@@ -19,11 +19,12 @@ import (
 var routesYAML []byte
 
 type routeItem struct {
-	Method    string `yaml:"method"`
-	Path      string `yaml:"path"`
-	Handler   string `yaml:"handler"`
-	Auth      bool   `yaml:"auth,omitempty"`
-	BasicAuth bool   `yaml:"basic_auth,omitempty"`
+	Method     string `yaml:"method"`
+	Path       string `yaml:"path"`
+	Handler    string `yaml:"handler"`
+	Auth       bool   `yaml:"auth,omitempty"`
+	BasicAuth  bool   `yaml:"basic_auth,omitempty"`
+	Permission string `yaml:"permission,omitempty"`
 }
 
 type routeConfig struct {
@@ -98,7 +99,12 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator 
 		if r.BasicAuth {
 			handlers = append(handlers, middlewares.BasicAuth(cfg.BasicAuthUsername, cfg.BasicAuthPassword))
 		}
-		if r.Auth {
+		if r.Permission != "" {
+			if !r.Auth {
+				handlers = append(handlers, middlewares.Auth(validator))
+			}
+			handlers = append(handlers, middlewares.RequirePermission(r.Permission))
+		} else if r.Auth {
 			handlers = append(handlers, middlewares.Auth(validator))
 		}
 		handlers = append(handlers, fn)
