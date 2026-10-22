@@ -15,8 +15,9 @@ import (
 
 // Middlewares is the central container for route-level and global middleware methods.
 type Middlewares struct {
-	cfg     config.Config
-	limiter *RateLimiter
+	cfg         config.Config
+	limiter     *RateLimiter
+	idempotency IdempotencyStore
 }
 
 // New initializes the central middlewares container with dependencies.
@@ -29,6 +30,17 @@ func New(cfg config.Config) *Middlewares {
 		cfg:     cfg,
 		limiter: limiter,
 	}
+}
+
+// WithIdempotencyStore fluently sets the idempotency store backend.
+func (m *Middlewares) WithIdempotencyStore(store IdempotencyStore) *Middlewares {
+	m.idempotency = store
+	return m
+}
+
+// SetIdempotencyStore sets the idempotency store backend.
+func (m *Middlewares) SetIdempotencyStore(store IdempotencyStore) {
+	m.idempotency = store
 }
 
 // abortError aborts the Gin context with a standardized JSON error envelope.

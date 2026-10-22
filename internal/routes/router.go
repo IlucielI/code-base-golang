@@ -55,7 +55,7 @@ type routeConfig struct {
 }
 
 // NewRouter constructs the central Gin engine and wires controllers and middleware.
-func NewRouter(cfg config.Config, ctrls *controllers.Controllers) *gin.Engine {
+func NewRouter(cfg config.Config, ctrls *controllers.Controllers, idempotencyStore ...middlewares.IdempotencyStore) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -64,6 +64,9 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers) *gin.Engine {
 
 	// Central middlewares container
 	mws := middlewares.New(cfg)
+	if len(idempotencyStore) > 0 && idempotencyStore[0] != nil {
+		mws.SetIdempotencyStore(idempotencyStore[0])
+	}
 	mwsVal := reflect.ValueOf(mws)
 
 	// OpenTelemetry HTTP server instrumentation (only when tracing is enabled).
