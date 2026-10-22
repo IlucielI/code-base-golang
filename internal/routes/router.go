@@ -19,12 +19,36 @@ import (
 var routesYAML []byte
 
 type routeItem struct {
-	Method     string `yaml:"method"`
-	Path       string `yaml:"path"`
-	Handler    string `yaml:"handler"`
-	Auth       bool   `yaml:"auth,omitempty"`
-	BasicAuth  bool   `yaml:"basic_auth,omitempty"`
-	Permission string `yaml:"permission,omitempty"`
+	Method      string   `yaml:"method"`
+	Path        string   `yaml:"path"`
+	Handler     string   `yaml:"handler"`
+	Auth        bool     `yaml:"auth,omitempty"`
+	BasicAuth   bool     `yaml:"basic_auth,omitempty"`
+	Permission  string   `yaml:"permission,omitempty"`
+	Middlewares []string `yaml:"middlewares,omitempty"`
+}
+
+// UnmarshalYAML supports both plural slice 'middlewares: [auth]' and singular scalar 'middleware: auth'.
+func (r *routeItem) UnmarshalYAML(node *yaml.Node) error {
+	type rawRouteItem routeItem
+	var raw rawRouteItem
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+	*r = routeItem(raw)
+
+	for i := 0; i < len(node.Content)-1; i += 2 {
+		key := node.Content[i].Value
+		if key == "middleware" {
+			var single string
+			if err := node.Content[i+1].Decode(&single); err == nil && single != "" {
+				if len(r.Middlewares) == 0 {
+					r.Middlewares = []string{single}
+				}
+			}
+		}
+	}
+	return nil
 }
 
 type routeConfig struct {
@@ -47,6 +71,7 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator 
 
 	// Central middlewares container
 	mws := middlewares.New(cfg, validator)
+	mwsVal := reflect.ValueOf(mws)
 
 	// OpenTelemetry HTTP server instrumentation (only when tracing is enabled).
 	if cfg.TracingEnabled {
@@ -92,6 +117,41 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator 
 		}
 
 		var handlers []gin.HandlerFunc
+
+		// Dynamically dispatch route-level middlewares defined in routes.yaml via Middlewares container
+		for _, mw := range r.Middlewares {
+			mwClean := strings.TrimSpace(mw)
+			if mwClean == "" {
+				continue
+			}
+			mwMethodName := toPascalCase(mwClean)
+			mwMethod := mwsVal.MethodByName(mwMethodName)
+
+			if !mwMethod.IsValid() {
+				log.Fatalf("route configuration error: middleware '%s' (method '%s') not found on Middlewares for route %s %s", mwClean, mwMethodName, r.Method, r.Path)
+			}
+
+			var mwHandler gin.HandlerFunc
+			if mwMethod.Type().NumIn() == 0 && mwMethod.Type().NumOut() == 1 {
+				res := mwMethod.Call(nil)[0].Interface()
+				var isHandler bool
+				mwHandler, isHandler = res.(gin.HandlerFunc)
+				if !isHandler {
+					log.Fatalf("route configuration error: middleware method '%s' must return gin.HandlerFunc", mwMethodName)
+				}
+			} else if mwMethod.Type().NumIn() == 1 && mwMethod.Type().NumOut() == 0 {
+				var isHandler bool
+				mwHandler, isHandler = mwMethod.Interface().(func(*gin.Context))
+				if !isHandler {
+					log.Fatalf("route configuration error: middleware method '%s' must have signature func(*gin.Context)", mwMethodName)
+				}
+			} else {
+				log.Fatalf("route configuration error: middleware method '%s' must have signature func() gin.HandlerFunc or func(*gin.Context)", mwMethodName)
+			}
+
+			handlers = append(handlers, mwHandler)
+		}
+
 		if r.BasicAuth {
 			handlers = append(handlers, mws.BasicAuth())
 		}
@@ -110,4 +170,25 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator 
 	}
 
 	return router
+}
+
+// toPascalCase converts snake_case or lowercase strings to PascalCase.
+// e.g. "auth" -> "Auth", "optional_auth" -> "OptionalAuth", "client_meta" -> "ClientMeta".
+func toPascalCase(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if !strings.Contains(s, "_") {
+		return strings.ToUpper(s[:1]) + s[1:]
+	}
+	parts := strings.Split(s, "_")
+	var b strings.Builder
+	for _, p := range parts {
+		if len(p) > 0 {
+			b.WriteString(strings.ToUpper(p[:1]))
+			b.WriteString(strings.ToLower(p[1:]))
+		}
+	}
+	return b.String()
 }
