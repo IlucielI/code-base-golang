@@ -318,7 +318,9 @@ When `AUTO_MIGRATE=true` is set in `.env`:
 
 | Middleware / Component | Description |
 |------------------------|-------------|
-| **Structured Logging** | Emits JSON logs (`LogLevelError`, `LogLevelWarn`, `LogLevelInfo`), tracks request latency, and assigns/propagates `X-Request-ID`. |
+| **Contextual Structured Logging** | Unified Go `log/slog` logging enriched with `request_id`, OpenTelemetry `trace_id`/`span_id`, and `user_id`. Outputs Text in development and JSON in production. |
+| **Prometheus Metrics** | Endpoint at `/metrics` tracking `http_requests_total`, latency histogram `http_request_duration_seconds`, active gauges, and runtime process stats. |
+| **Idempotency Key Guard** | Redis-backed idempotency (`Idempotency-Key` / `X-Idempotency-Key`) with in-flight concurrency locking (HTTP 409) and response caching & replay (`X-Cache-Lookup: HIT`). |
 | **Panic Recovery** | Catches unhandled panics, logs stack traces server-side, and outputs standardized safe HTTP 500 JSON error envelopes (`constants.ErrInternalServerError`). |
 | **Declarative Route Auth** | Dispatches `auth` (standard user tokens), `anon_auth` (guest tokens), or `optional_auth` (opt-in context injection) directly from `routes.yaml`. |
 | **Permission Guard (RBAC)** | Enforces granular route permissions (`permission: "resource:action"`) via `RequirePermission`, supporting wildcard (`*`) super-admin roles. |

@@ -147,7 +147,7 @@ func main() {
 	}
 	svc := services.New(cfg, repo, storage, publisher).WithMailer(smtpAdapter)
 	ctrls := controllers.New(cfg, svc)
-	router := routes.NewRouter(cfg, ctrls)
+	router := routes.NewRouter(cfg, ctrls, rdb)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

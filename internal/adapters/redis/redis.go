@@ -90,6 +90,14 @@ func (r *Redis) Set(ctx context.Context, key string, value any, expiration time.
 	return r.client.Set(ctx, key, value, expiration).Err()
 }
 
+// SetNX sets a key only if it does not already exist, returning true if the key was set.
+func (r *Redis) SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error) {
+	if r == nil || r.client == nil {
+		return false, fmt.Errorf("redis client is nil")
+	}
+	return r.client.SetNX(ctx, key, value, expiration).Result()
+}
+
 // Delete removes one or more keys.
 func (r *Redis) Delete(ctx context.Context, keys ...string) error {
 	if r == nil || r.client == nil {
