@@ -7,14 +7,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"code-base-golang/internal/config"
 	"code-base-golang/internal/middlewares"
 )
 
 func TestRateLimit_AllowedAndBlocked(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	mws := middlewares.New(config.Config{})
 	router := gin.New()
 	// Allow 1 request per second with burst 2
-	router.Use(middlewares.RateLimit(1.0, 2))
+	router.Use(mws.RateLimit(1.0, 2))
 	router.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
 	})
@@ -46,9 +48,10 @@ func TestRateLimit_AllowedAndBlocked(t *testing.T) {
 
 func TestRateLimit_Disabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	mws := middlewares.New(config.Config{RateLimiterEnabled: false})
 	router := gin.New()
 	// Disabled
-	router.Use(middlewares.RateLimit(1.0, 1, false))
+	router.Use(mws.RateLimit())
 	router.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
 	})

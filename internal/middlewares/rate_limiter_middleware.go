@@ -70,30 +70,26 @@ func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 }
 
 // RateLimit returns the rate limiter middleware from the Middlewares container.
-// It uses the configured limiter or falls back to no-op if disabled.
-func (m *Middlewares) RateLimit() gin.HandlerFunc {
-	if m.limiter == nil {
+// It uses custom limit and burst if provided, falls back to the configured limiter, or no-op if disabled.
+func (m *Middlewares) RateLimit(custom ...float64) gin.HandlerFunc {
+	limiter := m.limiter
+	limit := 0.0
+	if limiter != nil {
+		limit = float64(limiter.rate)
+	}
+
+	if len(custom) >= 2 && custom[0] > 0 && custom[1] > 0 {
+		limit = custom[0]
+		burst := int(custom[1])
+		limiter = NewRateLimiter(limit, burst)
+	}
+
+	if limiter == nil {
 		return func(c *gin.Context) {
 			c.Next()
 		}
 	}
-	return buildRateLimitHandler(m.limiter, float64(m.limiter.rate))
-}
 
-// RateLimit creates a Gin middleware that enforces per-client IP rate limits.
-func RateLimit(limit float64, burst int, enabled ...bool) gin.HandlerFunc {
-	isEnabled := true
-	if len(enabled) > 0 {
-		isEnabled = enabled[0]
-	}
-
-	if !isEnabled || limit <= 0 || burst <= 0 {
-		return func(c *gin.Context) {
-			c.Next()
-		}
-	}
-
-	limiter := NewRateLimiter(limit, burst)
 	return buildRateLimitHandler(limiter, limit)
 }
 
