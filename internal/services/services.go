@@ -38,9 +38,6 @@ func (s *Service) SetStorage(storage FileStorage) {
 
 // Storage returns the underlying file storage provider.
 func (s *Service) Storage() FileStorage {
-	if s == nil {
-		return nil
-	}
 	return s.storage
 }
 
@@ -51,9 +48,6 @@ func (s *Service) SetRepositories(repo *repositories.Repositories) {
 
 // Repositories returns the underlying repositories container.
 func (s *Service) Repositories() *repositories.Repositories {
-	if s == nil {
-		return nil
-	}
 	return s.repo
 }
 
@@ -64,9 +58,6 @@ func (s *Service) SetPublisher(pub EventPublisher) {
 
 // Publisher returns the underlying event publisher adapter.
 func (s *Service) Publisher() EventPublisher {
-	if s == nil {
-		return nil
-	}
 	return s.publisher
 }
 
@@ -83,9 +74,6 @@ func (s *Service) WithMailer(mailer EmailSender) *Service {
 
 // Mailer returns the underlying email sender adapter.
 func (s *Service) Mailer() EmailSender {
-	if s == nil {
-		return nil
-	}
 	return s.mailer
 }
 
