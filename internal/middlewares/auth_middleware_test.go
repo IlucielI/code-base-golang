@@ -26,6 +26,7 @@ func setupTestAuthConfig() config.Config {
 func TestAuthMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := setupTestAuthConfig()
+	mws := New(cfg)
 
 	userID := uuid.New()
 	email := "user@example.com"
@@ -38,7 +39,7 @@ func TestAuthMiddleware(t *testing.T) {
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(Auth(cfg))
+		r.Use(mws.Auth)
 		r.GET("/protected", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -54,7 +55,7 @@ func TestAuthMiddleware(t *testing.T) {
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(Auth(cfg))
+		r.Use(mws.Auth)
 		r.GET("/protected", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -71,7 +72,7 @@ func TestAuthMiddleware(t *testing.T) {
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(Auth(cfg))
+		r.Use(mws.Auth)
 		r.GET("/protected", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -89,7 +90,7 @@ func TestAuthMiddleware(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
 		var capturedUser ctxmeta.AuthUser
-		r.Use(Auth(cfg))
+		r.Use(mws.Auth)
 		r.GET("/protected", func(ctx *gin.Context) {
 			u, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
 			if ok {
@@ -119,7 +120,7 @@ func TestAuthMiddleware(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
 		var capturedUser ctxmeta.AuthUser
-		r.Use(Auth(cfg))
+		r.Use(mws.Auth)
 		r.GET("/protected-role", func(ctx *gin.Context) {
 			u, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
 			if ok {
@@ -139,25 +140,7 @@ func TestAuthMiddleware(t *testing.T) {
 		}
 	}
 
-	// 6. Container method Auth()
-	{
-		mws := New(cfg)
-		w := httptest.NewRecorder()
-		c, r := gin.CreateTestContext(w)
-		r.Use(mws.Auth)
-		r.GET("/protected", func(ctx *gin.Context) {
-			ctx.Status(http.StatusOK)
-		})
-		c.Request = httptest.NewRequest(http.MethodGet, "/protected", nil)
-		c.Request.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
-		r.ServeHTTP(w, c.Request)
-
-		if w.Code != http.StatusOK {
-			t.Fatalf("expected 200 from container Auth(), got %d", w.Code)
-		}
-	}
-
-	// 7. Token with missing role claim -> 401
+	// 6. Token with missing role claim -> 401
 	{
 		now := time.Now()
 		noRoleClaims := jwt.CustomClaims{
@@ -181,7 +164,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(Auth(cfg))
+		r.Use(mws.Auth)
 		r.GET("/protected", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -198,6 +181,7 @@ func TestAuthMiddleware(t *testing.T) {
 func TestOptionalAuthMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := setupTestAuthConfig()
+	mws := New(cfg)
 
 	userID := uuid.New()
 	email := "opt@example.com"
@@ -210,7 +194,7 @@ func TestOptionalAuthMiddleware(t *testing.T) {
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(OptionalAuth(cfg))
+		r.Use(mws.OptionalAuth)
 		r.GET("/optional", func(ctx *gin.Context) {
 			_, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
 			if ok {
@@ -231,7 +215,7 @@ func TestOptionalAuthMiddleware(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
 		var capturedUser ctxmeta.AuthUser
-		r.Use(OptionalAuth(cfg))
+		r.Use(mws.OptionalAuth)
 		r.GET("/optional", func(ctx *gin.Context) {
 			u, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
 			if ok {
@@ -251,24 +235,7 @@ func TestOptionalAuthMiddleware(t *testing.T) {
 		}
 	}
 
-	// 3. Container method OptionalAuth()
-	{
-		mws := New(cfg)
-		w := httptest.NewRecorder()
-		c, r := gin.CreateTestContext(w)
-		r.Use(mws.OptionalAuth)
-		r.GET("/optional", func(ctx *gin.Context) {
-			ctx.Status(http.StatusOK)
-		})
-		c.Request = httptest.NewRequest(http.MethodGet, "/optional", nil)
-		r.ServeHTTP(w, c.Request)
-
-		if w.Code != http.StatusOK {
-			t.Fatalf("expected 200 from container OptionalAuth(), got %d", w.Code)
-		}
-	}
-
-	// 4. Token without role claim -> 200 but does NOT inject AuthUser
+	// 3. Token without role claim -> 200 but does NOT inject AuthUser
 	{
 		now := time.Now()
 		noRoleClaims := jwt.CustomClaims{
@@ -293,7 +260,7 @@ func TestOptionalAuthMiddleware(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
 		injected := false
-		r.Use(OptionalAuth(cfg))
+		r.Use(mws.OptionalAuth)
 		r.GET("/optional", func(ctx *gin.Context) {
 			_, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
 			injected = ok
@@ -314,12 +281,14 @@ func TestOptionalAuthMiddleware(t *testing.T) {
 
 func TestRequirePermission(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	cfg := setupTestAuthConfig()
+	mws := New(cfg)
 
 	// 1. Unauthenticated -> 401
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(RequirePermission("users:read"))
+		r.Use(mws.RequirePermission("users:read"))
 		r.GET("/perm-test", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -344,7 +313,7 @@ func TestRequirePermission(t *testing.T) {
 			}))
 			ctx.Next()
 		})
-		r.Use(RequirePermission("users:delete"))
+		r.Use(mws.RequirePermission("users:delete"))
 		r.GET("/perm-test", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -369,7 +338,7 @@ func TestRequirePermission(t *testing.T) {
 			}))
 			ctx.Next()
 		})
-		r.Use(RequirePermission("users:read"))
+		r.Use(mws.RequirePermission("users:read"))
 		r.GET("/perm-test", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -394,7 +363,7 @@ func TestRequirePermission(t *testing.T) {
 			}))
 			ctx.Next()
 		})
-		r.Use(RequirePermission("users:delete"))
+		r.Use(mws.RequirePermission("users:delete"))
 		r.GET("/perm-test", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -410,6 +379,7 @@ func TestRequirePermission(t *testing.T) {
 func TestAnonAuthMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := setupTestAuthConfig()
+	mws := New(cfg)
 
 	anonToken, err := jwt.GenerateAnonToken(cfg)
 	if err != nil {
@@ -425,7 +395,7 @@ func TestAnonAuthMiddleware(t *testing.T) {
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(AnonAuth(cfg))
+		r.Use(mws.AnonAuth)
 		r.GET("/anon-only", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -441,7 +411,7 @@ func TestAnonAuthMiddleware(t *testing.T) {
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(AnonAuth(cfg))
+		r.Use(mws.AnonAuth)
 		r.GET("/anon-only", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -459,7 +429,7 @@ func TestAnonAuthMiddleware(t *testing.T) {
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
 		var capturedUser ctxmeta.AuthUser
-		r.Use(AnonAuth(cfg))
+		r.Use(mws.AnonAuth)
 		r.GET("/anon-only", func(ctx *gin.Context) {
 			u, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
 			if ok {
@@ -479,24 +449,6 @@ func TestAnonAuthMiddleware(t *testing.T) {
 		}
 		if capturedUser.UserID == uuid.Nil {
 			t.Error("expected valid anon UserID, got Nil")
-		}
-	}
-
-	// 4. Container method AnonAuth()
-	{
-		mws := New(cfg)
-		w := httptest.NewRecorder()
-		c, r := gin.CreateTestContext(w)
-		r.Use(mws.AnonAuth)
-		r.GET("/anon-only", func(ctx *gin.Context) {
-			ctx.Status(http.StatusOK)
-		})
-		c.Request = httptest.NewRequest(http.MethodGet, "/anon-only", nil)
-		c.Request.Header.Set("Authorization", "Bearer "+anonToken.AccessToken)
-		r.ServeHTTP(w, c.Request)
-
-		if w.Code != http.StatusOK {
-			t.Fatalf("expected 200 from container AnonAuth(), got %d", w.Code)
 		}
 	}
 }
