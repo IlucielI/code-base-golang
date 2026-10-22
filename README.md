@@ -338,12 +338,26 @@ make help          # Show available commands
 make run           # Run the API server locally
 make build         # Compile binary into bin/api
 make test          # Run all unit tests across the workspace
+make lint          # Run golangci-lint static analysis
+make check         # Run lint, unit tests, and binary build
+make build-docker  # Build three-tier Docker container images
 make docker-up     # Start PostgreSQL, Redis, RabbitMQ, MinIO, and Mailpit
 make docker-down   # Stop all background Docker containers
 make migrate-up    # Apply pending database migrations
 make migrate-down  # Rollback last migration
 make migrate-status# Check current migration version
 ```
+
+---
+
+## Continuous Integration & Quality Assurance
+
+Both **GitHub Actions** (`.github/workflows/ci.yaml`) and **GitLab CI** (`.gitlab-ci.yml`) pipelines are configured out of the box to validate all commits and pull/merge requests:
+
+1. **Linting (`golangci-lint`)**: Static analysis checking formatting, error handling, unused code, race conditions, and security vulnerabilities configured via `.golangci.yml`.
+2. **Unit Tests & Race Detection**: Runs `go test -v -race -coverprofile=coverage.out -covermode=atomic ./...`.
+3. **Binary Compilation**: Verifies that the production binary compiles without errors (`CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/api cmd/api/main.go`).
+4. **Three-Tier Docker Build**: Verifies that `Dockerfile.base`, `Dockerfile.runtime`, and `Dockerfile` assemble cleanly.
 
 ---
 
@@ -354,6 +368,12 @@ Execute the comprehensive test suite across all packages:
 ```bash
 make test
 # or: go test -v ./...
+```
+
+To run complete verification (lint + tests + build):
+
+```bash
+make check
 ```
 
 ---
