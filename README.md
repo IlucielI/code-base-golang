@@ -163,6 +163,13 @@ Which layer may touch DTOs:
 - `services` take `*Request`/`*Query` as input and build `*Data` from domain models.
 - `repositories` **never** import `internal/dtos` — they work with `internal/models` entities plus primitives or local filter types, so transport shapes never leak into persistence.
 
+### Repository Filters
+
+Query filters used by repositories live directly inside `internal/repositories/` (no `repositories/filters/` sub-package):
+- Shared pagination and sorting parameters use `PaginationFilter` and `SortFilter` defined in `internal/repositories/filter.go` (with helpers `NewPaginationFilter` and `OrderClause`).
+- Domain-specific filter structs live alongside their repository entities (e.g. `UserFilter` in `user_repository.go`), embedding `PaginationFilter` and `SortFilter`.
+- Services map transport query DTOs (`*Query`) into repository filters before calling repository methods.
+
 ### Templates & Large Text Content
 
 HTML, email bodies and long prompts are never string literals inside `.go` files. They live as embedded template files under `internal/templates/<category>/` with a consistent `.tmpl` extension (`*.html.tmpl` / `*.txt.tmpl`), loaded via `//go:embed` and rendered through Go's template engine. Use `html/template` for HTML output (auto-escaping/XSS-safe) and `text/template` for plain text or prompts. The `.go` files hold only the loader, data structs and render functions.
