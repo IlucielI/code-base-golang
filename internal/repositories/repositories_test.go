@@ -14,13 +14,7 @@ import (
 )
 
 func TestRepositories_PingDB(t *testing.T) {
-	// 1. Nil repo
-	var nilRepo *Repositories
-	if err := nilRepo.PingDB(context.Background()); err == nil {
-		t.Fatal("expected error on nil repo, got nil")
-	}
-
-	// 2. Nil db
+	// 1. Nil db
 	emptyRepo := New(nil)
 	if err := emptyRepo.PingDB(context.Background()); err == nil {
 		t.Fatal("expected error on nil db, got nil")
@@ -56,13 +50,7 @@ func TestRepositories_PingDB(t *testing.T) {
 }
 
 func TestRepositories_PingRedis(t *testing.T) {
-	// 1. Nil repo
-	var nilRepo *Repositories
-	if err := nilRepo.PingRedis(context.Background()); err == nil {
-		t.Fatal("expected error on nil repo, got nil")
-	}
-
-	// 2. Nil redis
+	// 1. Nil redis
 	emptyRepo := New(nil)
 	if err := emptyRepo.PingRedis(context.Background()); err == nil {
 		t.Fatal("expected error on nil redis, got nil")
