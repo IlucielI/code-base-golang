@@ -8,13 +8,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"code-base-golang/internal/config"
 	"code-base-golang/internal/middlewares"
 )
 
 func TestCORS_PreflightOptions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	mws := middlewares.New(config.Config{})
 	router := gin.New()
-	router.Use(middlewares.CORS())
+	router.Use(mws.CORS())
 	router.GET("/test", func(c *gin.Context) {
 		c.String(http.StatusOK, "ok")
 	})
@@ -40,8 +42,9 @@ func TestCORS_PreflightOptions(t *testing.T) {
 
 func TestCORS_SpecificOrigins(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	mws := middlewares.New(config.Config{})
 	router := gin.New()
-	router.Use(middlewares.CORS(middlewares.CORSConfig{
+	router.Use(mws.CORS(middlewares.CORSConfig{
 		AllowedOrigins: []string{"https://app.example.com"},
 		AllowedMethods: []string{"GET", "POST"},
 		MaxAge:         time.Hour,

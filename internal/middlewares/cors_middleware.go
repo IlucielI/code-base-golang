@@ -33,24 +33,17 @@ func DefaultCORSConfig() CORSConfig {
 
 // CORS returns the CORS middleware configured from the container's Config or custom overrides.
 func (m *Middlewares) CORS(cfg ...CORSConfig) gin.HandlerFunc {
-	if len(cfg) > 0 {
-		return CORS(cfg[0])
-	}
-	corsCfg := CORSConfig{
-		AllowedOrigins:   m.cfg.CORSAllowedOrigins,
-		AllowedMethods:   m.cfg.CORSAllowedMethods,
-		AllowedHeaders:   m.cfg.CORSAllowedHeaders,
-		AllowCredentials: m.cfg.CORSAllowCredentials,
-		MaxAge:           m.cfg.CORSMaxAge,
-	}
-	return CORS(corsCfg)
-}
-
-// CORS returns a Gin middleware handler implementing Cross-Origin Resource Sharing.
-func CORS(cfg ...CORSConfig) gin.HandlerFunc {
 	config := DefaultCORSConfig()
 	if len(cfg) > 0 {
 		config = cfg[0]
+	} else if len(m.cfg.CORSAllowedOrigins) > 0 {
+		config = CORSConfig{
+			AllowedOrigins:   m.cfg.CORSAllowedOrigins,
+			AllowedMethods:   m.cfg.CORSAllowedMethods,
+			AllowedHeaders:   m.cfg.CORSAllowedHeaders,
+			AllowCredentials: m.cfg.CORSAllowCredentials,
+			MaxAge:           m.cfg.CORSMaxAge,
+		}
 	}
 
 	methods := strings.Join(config.AllowedMethods, ", ")
