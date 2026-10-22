@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"code-base-golang/internal/config"
 	"code-base-golang/internal/pkg/ctxmeta"
 )
 
@@ -18,10 +19,12 @@ func init() {
 }
 
 func TestStructuredLogger(t *testing.T) {
+	mws := New(config.Config{})
+
 	t.Run("normal_200_info_log_and_generated_request_id", func(t *testing.T) {
 		buf := &bytes.Buffer{}
 		router := gin.New()
-		router.Use(StructuredLogger(WithWriter(buf)))
+		router.Use(mws.StructuredLogger(WithWriter(buf)))
 
 		var capturedContextReqID string
 		router.GET("/test-ok", func(c *gin.Context) {
@@ -76,7 +79,7 @@ func TestStructuredLogger(t *testing.T) {
 	t.Run("retains_valid_x_request_id_header", func(t *testing.T) {
 		buf := &bytes.Buffer{}
 		router := gin.New()
-		router.Use(StructuredLogger(WithWriter(buf)))
+		router.Use(mws.StructuredLogger(WithWriter(buf)))
 
 		router.GET("/custom-id", func(c *gin.Context) {
 			c.Status(http.StatusNoContent)
@@ -104,7 +107,7 @@ func TestStructuredLogger(t *testing.T) {
 	t.Run("regenerates_on_invalid_x_request_id", func(t *testing.T) {
 		buf := &bytes.Buffer{}
 		router := gin.New()
-		router.Use(StructuredLogger(WithWriter(buf)))
+		router.Use(mws.StructuredLogger(WithWriter(buf)))
 
 		router.GET("/invalid-id", func(c *gin.Context) {
 			c.Status(http.StatusOK)
@@ -127,7 +130,7 @@ func TestStructuredLogger(t *testing.T) {
 	t.Run("client_error_warn_level", func(t *testing.T) {
 		buf := &bytes.Buffer{}
 		router := gin.New()
-		router.Use(StructuredLogger(WithWriter(buf)))
+		router.Use(mws.StructuredLogger(WithWriter(buf)))
 
 		router.GET("/client-err", func(c *gin.Context) {
 			c.Status(http.StatusBadRequest)
@@ -149,7 +152,7 @@ func TestStructuredLogger(t *testing.T) {
 	t.Run("server_error_error_level", func(t *testing.T) {
 		buf := &bytes.Buffer{}
 		router := gin.New()
-		router.Use(StructuredLogger(WithWriter(buf)))
+		router.Use(mws.StructuredLogger(WithWriter(buf)))
 
 		router.GET("/server-err", func(c *gin.Context) {
 			c.Status(http.StatusInternalServerError)
