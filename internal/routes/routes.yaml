@@ -16,3 +16,9 @@ routes:
     path: /docs
     handler: APIDocs
     middlewares: [basic_auth]
+
+  # Metrics endpoint
+  - method: GET
+    path: /metrics
+    handler: PrometheusMetrics
+

@@ -73,6 +73,7 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers) *gin.Engine {
 
 	// Global middleware stack
 	router.Use(
+		mws.Metrics(),
 		mws.Logger(),
 		mws.Recovery(),
 		mws.CORS(),
