@@ -13,7 +13,7 @@ import (
 	"code-base-golang/internal/pkg/ctxmeta"
 )
 
-// LogEntry defines the structured JSON log output format.
+// LogEntry defines the JSON structure emitted for each HTTP access log.
 type LogEntry struct {
 	Level      string `json:"level"`
 	Timestamp  string `json:"timestamp"`
@@ -30,10 +30,10 @@ type loggerOptions struct {
 	writer io.Writer
 }
 
-// LoggerOption configures the StructuredLogger.
+// LoggerOption configures the StructuredLogger middleware.
 type LoggerOption func(*loggerOptions)
 
-// WithWriter sets a custom output destination for logs (useful for unit testing).
+// WithWriter overrides the output destination (default is os.Stdout).
 func WithWriter(w io.Writer) LoggerOption {
 	return func(o *loggerOptions) {
 		if w != nil {
@@ -44,16 +44,11 @@ func WithWriter(w io.Writer) LoggerOption {
 
 // Logger returns the structured logger middleware from the Middlewares container.
 func (m *Middlewares) Logger(opts ...LoggerOption) gin.HandlerFunc {
-	return StructuredLogger(opts...)
-}
-
-// StructuredLogger returns the structured logger middleware from the Middlewares container.
-func (m *Middlewares) StructuredLogger(opts ...LoggerOption) gin.HandlerFunc {
-	return StructuredLogger(opts...)
+	return m.StructuredLogger(opts...)
 }
 
 // StructuredLogger returns a Gin middleware that outputs structured JSON logs for each HTTP request.
-func StructuredLogger(opts ...LoggerOption) gin.HandlerFunc {
+func (m *Middlewares) StructuredLogger(opts ...LoggerOption) gin.HandlerFunc {
 	cfg := &loggerOptions{
 		writer: os.Stdout,
 	}
