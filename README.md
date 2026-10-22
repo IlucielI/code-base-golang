@@ -163,12 +163,14 @@ Which layer may touch DTOs:
 - `services` take `*Request`/`*Query` as input and build `*Data` from domain models.
 - `repositories` **never** import `internal/dtos` — they work with `internal/models` entities plus primitives or local filter types, so transport shapes never leak into persistence.
 
-### Repository Filters
+### Repository Filters & Pagination
 
 Query filters used by repositories live directly inside `internal/repositories/` (no `repositories/filters/` sub-package):
-- Shared pagination and sorting parameters use `PaginationFilter` and `SortFilter` defined in `internal/repositories/filter.go` (with helpers `NewPaginationFilter` and `OrderClause`).
+- Repository filters are **pure data structs without logic methods**.
+- Shared pagination and sorting parameters use `PaginationFilter` (`Limit int`, `Offset int`) and `SortFilter` (`SortBy string`, `Order string`) defined in `internal/repositories/filter.go`.
+- Reusable pagination logic and metadata live in `internal/dtos/pagination_dto.go` (`PaginationQuery` with `SetDefaults()` and `Offset()`, and `PaginationMeta` with `NewPaginationMeta(page, limit, total)`).
 - Domain-specific filter structs live alongside their repository entities (e.g. `UserFilter` in `user_repository.go`), embedding `PaginationFilter` and `SortFilter`.
-- Services map transport query DTOs (`*Query`) into repository filters before calling repository methods.
+- Services map transport query DTOs (`*Query`) into repository filters using `query.Offset()` before calling repository methods.
 
 ### Templates & Large Text Content
 
