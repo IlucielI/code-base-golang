@@ -109,8 +109,8 @@ func TestRouter_PanicRecovery(t *testing.T) {
 	if resp.Code != constants.ResponseCodeInternalError {
 		t.Errorf("expected code %q, got %q", constants.ResponseCodeInternalError, resp.Code)
 	}
-	if resp.Message != "An internal server error occurred" {
-		t.Errorf("expected message 'An internal server error occurred', got %q", resp.Message)
+	if resp.Message != constants.ErrInternalServerError.Message {
+		t.Errorf("expected message %q, got %q", constants.ErrInternalServerError.Message, resp.Message)
 	}
 	if resp.Timestamp.IsZero() {
 		t.Errorf("expected non-zero timestamp")

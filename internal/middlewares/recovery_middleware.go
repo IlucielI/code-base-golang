@@ -3,7 +3,6 @@ package middlewares
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"runtime/debug"
@@ -23,7 +22,7 @@ type recoveryOptions struct {
 // RecoveryOption configures the Recovery middleware.
 type RecoveryOption func(*recoveryOptions)
 
-// WithRecoveryWriter sets a custom output destination for recovery stack trace logs (useful for testing).
+// WithRecoveryWriter overrides the panic stack trace log destination (default is os.Stderr).
 func WithRecoveryWriter(w io.Writer) RecoveryOption {
 	return func(o *recoveryOptions) {
 		if w != nil {
@@ -32,14 +31,9 @@ func WithRecoveryWriter(w io.Writer) RecoveryOption {
 	}
 }
 
-// Recovery returns the panic recovery middleware from the Middlewares container.
-func (m *Middlewares) Recovery(opts ...RecoveryOption) gin.HandlerFunc {
-	return Recovery(opts...)
-}
-
 // Recovery returns a Gin middleware that recovers from any panics, logs the stack trace server-side,
 // and returns a unified HTTP 500 JSON error envelope without exposing internal details.
-func Recovery(opts ...RecoveryOption) gin.HandlerFunc {
+func (m *Middlewares) Recovery(opts ...RecoveryOption) gin.HandlerFunc {
 	cfg := &recoveryOptions{
 		writer: os.Stderr,
 	}
@@ -63,44 +57,30 @@ func Recovery(opts ...RecoveryOption) gin.HandlerFunc {
 					}
 				}
 				if reqID == "" {
-					reqID = c.GetHeader("X-Request-ID")
+					reqID = c.Writer.Header().Get("X-Request-ID")
 				}
 
+				now := time.Now().UTC()
+				timestamp := now.Format(time.RFC3339)
 				method := ""
 				path := ""
 				if c.Request != nil {
 					method = c.Request.Method
-					if c.Request.URL != nil {
-						path = c.Request.URL.Path
-					}
+					path = c.Request.URL.Path
 				}
 
 				stack := debug.Stack()
+				logMsg := fmt.Sprintf("[PANIC RECOVERED] time=%s request_id=%s method=%s path=%s error=%v\nstack:\n%s\n",
+					timestamp, reqID, method, path, r, string(stack))
+				_, _ = fmt.Fprint(cfg.writer, logMsg)
 
-				// 2. Log full stack trace server-side with request context
-				logMsg := fmt.Sprintf(
-					"[PANIC RECOVERED] time=%s request_id=%s method=%s path=%s error=%v\nstack:\n%s\n",
-					time.Now().UTC().Format(time.RFC3339),
-					reqID,
-					method,
-					path,
-					r,
-					string(stack),
-				)
-
-				if n, writeErr := cfg.writer.Write([]byte(logMsg)); writeErr != nil {
-					log.Printf("failed to write recovery log (bytes: %d): %v", n, writeErr)
-				}
-
-				// 3. Return unified JSON error response without exposing internal error or stack trace
-				resp := dtos.BaseResponse{
+				// 3. Respond with standardized unified JSON error envelope
+				c.AbortWithStatusJSON(http.StatusInternalServerError, dtos.BaseResponse{
 					Status:    constants.ResponseStatusError,
 					Code:      constants.ResponseCodeInternalError,
-					Message:   "An internal server error occurred",
-					Timestamp: time.Now().UTC(),
-				}
-
-				c.AbortWithStatusJSON(http.StatusInternalServerError, resp)
+					Message:   constants.ErrInternalServerError.Message,
+					Timestamp: now,
+				})
 			}
 		}()
 
