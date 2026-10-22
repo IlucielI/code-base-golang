@@ -98,7 +98,7 @@ func (s *SMTP) Send(ctx context.Context, msg services.EmailMessage) error {
 	// Determine content type (HTML preferred if available, multipart alternative if both)
 	if msg.HTMLBody != "" && msg.TextBody != "" {
 		boundary := fmt.Sprintf("boundary-%d", time.Now().UnixNano())
-		sb.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n\r\n", boundary))
+		sb.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=%q\r\n\r\n", boundary))
 
 		sb.WriteString(fmt.Sprintf("--%s\r\n", boundary))
 		sb.WriteString("Content-Type: text/plain; charset=UTF-8\r\n\r\n")

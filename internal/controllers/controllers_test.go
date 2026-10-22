@@ -114,3 +114,26 @@ func TestControllers_wrapError(t *testing.T) {
 		}
 	})
 }
+
+func TestControllers_respondCreatedAndEmpty(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctrls := New(config.Config{}, nil)
+
+	t.Run("respondCreated sends 201 Created", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(w)
+		ctrls.respondCreated(ctx, "created successfully", map[string]string{"id": "123"})
+		if w.Code != http.StatusCreated {
+			t.Fatalf("expected 201, got %d", w.Code)
+		}
+	})
+
+	t.Run("respondEmpty sends 200 OK without data", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(w)
+		ctrls.respondEmpty(ctx, "operation completed")
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", w.Code)
+		}
+	})
+}

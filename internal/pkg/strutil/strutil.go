@@ -37,7 +37,7 @@ func ToPascalCase(s string) string {
 	parts := strings.Split(s, "_")
 	var b strings.Builder
 	for _, p := range parts {
-		if len(p) > 0 {
+		if p != "" {
 			b.WriteString(strings.ToUpper(p[:1]))
 			b.WriteString(strings.ToLower(p[1:]))
 		}

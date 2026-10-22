@@ -16,7 +16,7 @@ func TestConstantTimeEqual(t *testing.T) {
 
 func TestLikePattern(t *testing.T) {
 	cases := map[string]string{
-		"hello":    "%hello%",
+		"hello":     "%hello%",
 		"  spaced ": "%spaced%",
 		"":          "",
 		"   ":       "",

@@ -122,4 +122,3 @@ func (c *Controllers) respondEmpty(ctx *gin.Context, message string) {
 		Timestamp: time.Now(),
 	})
 }
-

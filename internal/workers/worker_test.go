@@ -32,10 +32,10 @@ func TestWorkerServer_NilSubscriber(t *testing.T) {
 
 func TestQueue_MustParse(t *testing.T) {
 	data := []byte(`{"id":"entity-123"}`)
-	var p queue.Id
+	var p queue.ID
 	queue.MustParse(data, &p)
-	if p.Id != "entity-123" {
-		t.Errorf("expected entity-123, got %s", p.Id)
+	if p.ID != "entity-123" {
+		t.Errorf("expected entity-123, got %s", p.ID)
 	}
 
 	defer func() {
@@ -48,12 +48,12 @@ func TestQueue_MustParse(t *testing.T) {
 
 func TestQueue_Parse(t *testing.T) {
 	data := []byte(`{"id":"order-999"}`)
-	var p queue.Id
+	var p queue.ID
 	if err := queue.Parse(data, &p); err != nil {
 		t.Errorf("expected nil error parsing payload, got %v", err)
 	}
-	if p.Id != "order-999" {
-		t.Errorf("expected order-999, got %s", p.Id)
+	if p.ID != "order-999" {
+		t.Errorf("expected order-999, got %s", p.ID)
 	}
 
 	if err := queue.Parse([]byte("bad json"), &p); err == nil {

@@ -167,5 +167,3 @@ func (e *AppError) WithMessage(msg string) *AppError {
 		stack:      e.stack,
 	}
 }
-
-

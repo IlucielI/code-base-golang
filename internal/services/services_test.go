@@ -168,4 +168,3 @@ func TestService_EmailSender_Mock(t *testing.T) {
 		t.Errorf("expected smtp disconnected on error, got %s", health.SMTP)
 	}
 }
-
