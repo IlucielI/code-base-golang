@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"code-base-golang/internal/config"
+	"code-base-golang/internal/constants"
 	"code-base-golang/internal/pkg/ctxmeta"
 )
 
@@ -56,8 +57,8 @@ func TestStructuredLogger(t *testing.T) {
 			t.Fatalf("failed to parse log entry as JSON: %v. Raw: %s", err, buf.String())
 		}
 
-		if entry.Level != "INFO" {
-			t.Errorf("expected level INFO, got %s", entry.Level)
+		if entry.Level != constants.LogLevelInfo {
+			t.Errorf("expected level %s, got %s", constants.LogLevelInfo, entry.Level)
 		}
 		if entry.Method != http.MethodGet {
 			t.Errorf("expected method GET, got %s", entry.Method)
@@ -144,8 +145,8 @@ func TestStructuredLogger(t *testing.T) {
 		if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
 			t.Fatalf("failed to parse log: %v", err)
 		}
-		if entry.Level != "WARN" {
-			t.Fatalf("expected level WARN for 400, got %s", entry.Level)
+		if entry.Level != constants.LogLevelWarn {
+			t.Fatalf("expected level %s for 400, got %s", constants.LogLevelWarn, entry.Level)
 		}
 	})
 
@@ -166,8 +167,8 @@ func TestStructuredLogger(t *testing.T) {
 		if err := json.Unmarshal(buf.Bytes(), &entry); err != nil {
 			t.Fatalf("failed to parse log: %v", err)
 		}
-		if entry.Level != "ERROR" {
-			t.Fatalf("expected level ERROR for 500, got %s", entry.Level)
+		if entry.Level != constants.LogLevelError {
+			t.Fatalf("expected level %s for 500, got %s", constants.LogLevelError, entry.Level)
 		}
 	})
 }
