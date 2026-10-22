@@ -167,5 +167,3 @@ func TestAppError_StackTrace(t *testing.T) {
 		t.Fatal("expected New without a cause to capture no stack")
 	}
 }
-
-

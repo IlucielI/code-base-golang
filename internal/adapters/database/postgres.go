@@ -12,7 +12,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/golang-migrate/migrate/v4/source/file" // register file driver
 	gormPostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -106,9 +106,9 @@ func RunMigrations(sqlDB *sql.DB) error {
 		return fmt.Errorf("failed to create postgres migrate driver: %w", err)
 	}
 
-	sourceUri := "file://" + migrationsDir
+	sourceURI := "file://" + migrationsDir
 
-	m, err := migrate.NewWithDatabaseInstance(sourceUri, "postgres", driver)
+	m, err := migrate.NewWithDatabaseInstance(sourceURI, "postgres", driver)
 	if err != nil {
 		return fmt.Errorf("failed to initialize migrate: %w", err)
 	}

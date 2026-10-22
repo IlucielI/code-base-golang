@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres" // register postgres driver
+	_ "github.com/golang-migrate/migrate/v4/source/file"       // register file driver
 
 	"code-base-golang/internal/config"
 )
@@ -257,7 +257,7 @@ func Run(cfg config.Config, args []string) error {
 	case "down":
 		limit := 1
 		if len(args) >= 2 {
-			if strings.ToLower(args[1]) == "all" {
+			if strings.EqualFold(args[1], "all") {
 				limit = -1
 			} else {
 				n, err := strconv.Atoi(args[1])

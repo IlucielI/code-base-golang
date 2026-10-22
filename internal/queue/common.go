@@ -5,9 +5,9 @@ import (
 	"fmt"
 )
 
-// Id represents a common payload containing an entity identifier.
-type Id struct {
-	Id string `json:"id"`
+// ID represents a common payload containing an entity identifier.
+type ID struct {
+	ID string `json:"id"`
 }
 
 // TriggerOption represents a common payload option for triggering background jobs.

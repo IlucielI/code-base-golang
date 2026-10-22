@@ -77,8 +77,8 @@ func (s *Service) Mailer() EmailSender {
 	return s.mailer
 }
 
-// wrapError wraps unknown or system errors into structured AppError.
-func (s *Service) wrapError(ctx context.Context, err error) error {
+// WrapError wraps unknown or system errors into structured AppError.
+func (s *Service) WrapError(ctx context.Context, err error) error {
 	if err == nil {
 		return nil
 	}

@@ -18,17 +18,17 @@ type Config struct {
 	GitHash  string
 
 	// Database Configuration
-	DBHost                 string
-	DBPort                 string
-	DBUser                 string
-	DBPass                 string
-	DBName                 string
-	DBSSLMode              string
-	DBPoolMaxOpenConn      int
-	DBPoolMaxIdleConn      int
-	DBPoolMaxConnLifetime  time.Duration
-	DBPoolMaxConnIdleTime  time.Duration
-	AutoMigrate            bool
+	DBHost                string
+	DBPort                string
+	DBUser                string
+	DBPass                string
+	DBName                string
+	DBSSLMode             string
+	DBPoolMaxOpenConn     int
+	DBPoolMaxIdleConn     int
+	DBPoolMaxConnLifetime time.Duration
+	DBPoolMaxConnIdleTime time.Duration
+	AutoMigrate           bool
 
 	// Redis Configuration
 	RedisHost         string
@@ -114,17 +114,17 @@ func Load() Config {
 		GitHash:  getEnv("GIT_HASH", "dev"),
 
 		// Database settings (POSTGRES_* matching official Docker image, with DB_* fallback)
-		DBHost:                 getEnvWithFallback("POSTGRES_HOST", "DB_HOST", "localhost"),
-		DBPort:                 getEnvWithFallback("POSTGRES_PORT", "DB_PORT", "5432"),
-		DBUser:                 getEnvWithFallback("POSTGRES_USER", "DB_USER", "postgres"),
-		DBPass:                 getEnvWithFallback("POSTGRES_PASSWORD", "DB_PASS", "postgres"),
-		DBName:                 getEnvWithFallback("POSTGRES_DB", "DB_NAME", "code_base_golang"),
-		DBSSLMode:              getEnvWithFallback("POSTGRES_SSLMODE", "DB_SSLMODE", "disable"),
-		DBPoolMaxOpenConn:      getEnvInt("DB_POOL_MAX_OPEN_CONN", 25),
-		DBPoolMaxIdleConn:      getEnvInt("DB_POOL_MAX_IDLE_CONN", 10),
-		DBPoolMaxConnLifetime:  getEnvDuration("DB_POOL_MAX_CONN_LIFETIME", 30*time.Minute),
-		DBPoolMaxConnIdleTime:  getEnvDuration("DB_POOL_MAX_CONN_IDLE_TIME", 10*time.Minute),
-		AutoMigrate:            getEnvWithFallbackBool("AUTO_MIGRATE", "DB_AUTO_MIGRATE", false),
+		DBHost:                getEnvWithFallback("POSTGRES_HOST", "DB_HOST", "localhost"),
+		DBPort:                getEnvWithFallback("POSTGRES_PORT", "DB_PORT", "5432"),
+		DBUser:                getEnvWithFallback("POSTGRES_USER", "DB_USER", "postgres"),
+		DBPass:                getEnvWithFallback("POSTGRES_PASSWORD", "DB_PASS", "postgres"),
+		DBName:                getEnvWithFallback("POSTGRES_DB", "DB_NAME", "code_base_golang"),
+		DBSSLMode:             getEnvWithFallback("POSTGRES_SSLMODE", "DB_SSLMODE", "disable"),
+		DBPoolMaxOpenConn:     getEnvInt("DB_POOL_MAX_OPEN_CONN", 25),
+		DBPoolMaxIdleConn:     getEnvInt("DB_POOL_MAX_IDLE_CONN", 10),
+		DBPoolMaxConnLifetime: getEnvDuration("DB_POOL_MAX_CONN_LIFETIME", 30*time.Minute),
+		DBPoolMaxConnIdleTime: getEnvDuration("DB_POOL_MAX_CONN_IDLE_TIME", 10*time.Minute),
+		AutoMigrate:           getEnvWithFallbackBool("AUTO_MIGRATE", "DB_AUTO_MIGRATE", false),
 
 		// Redis settings
 		RedisHost:         getEnv("REDIS_HOST", "localhost"),
@@ -361,4 +361,3 @@ func getEnvKeyValueMap(key string) map[string]string {
 	}
 	return res
 }
-

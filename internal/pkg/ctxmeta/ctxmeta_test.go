@@ -111,4 +111,3 @@ func TestRequestID(t *testing.T) {
 		t.Fatalf("expected %s from nil context injection, got %s", expectedID, reqID)
 	}
 }
-
