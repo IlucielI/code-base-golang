@@ -1,46 +1,44 @@
 package middlewares
 
 import (
-	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	jwtgo "github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
-	"code-base-golang/internal/constants"
+	"code-base-golang/internal/config"
 	"code-base-golang/internal/pkg/ctxmeta"
+	"code-base-golang/internal/pkg/jwt"
 )
 
-type mockAuthValidator struct {
-	authenticateFn func(ctx context.Context, tokenStr string) (*ctxmeta.AuthUser, error)
-}
-
-func (m *mockAuthValidator) Authenticate(ctx context.Context, tokenStr string) (*ctxmeta.AuthUser, error) {
-	if m.authenticateFn != nil {
-		return m.authenticateFn(ctx, tokenStr)
+func setupTestAuthConfig() config.Config {
+	return config.Config{
+		AppName:             "test-app",
+		JWTSecret:           "auth-test-secret-key-that-is-long-enough",
+		JWTAccessExpiration: 15 * time.Minute,
 	}
-	return nil, constants.ErrInvalidToken
 }
 
 func TestAuthMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	cfg := setupTestAuthConfig()
 
 	userID := uuid.New()
-	validUser := &ctxmeta.AuthUser{
-		UserID:    userID,
-		Email:     "user@example.com",
-		SessionID: "sess-123",
+	email := "user@example.com"
+	tokens, err := jwt.GenerateTokenPair(cfg, userID, email, "session-123")
+	if err != nil {
+		t.Fatalf("failed to generate test token: %v", err)
 	}
 
-	// 1. Missing Authorization header
+	// 1. Missing Authorization header -> 401
 	{
-		validator := &mockAuthValidator{}
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(Auth(validator))
+		r.Use(Auth(cfg))
 		r.GET("/protected", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -52,12 +50,11 @@ func TestAuthMiddleware(t *testing.T) {
 		}
 	}
 
-	// 2. Invalid Authorization header format
+	// 2. Invalid Authorization header format -> 401
 	{
-		validator := &mockAuthValidator{}
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(Auth(validator))
+		r.Use(Auth(cfg))
 		r.GET("/protected", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -70,137 +67,247 @@ func TestAuthMiddleware(t *testing.T) {
 		}
 	}
 
-	// 3. Nil validator or empty token
+	// 3. Invalid JWT token signature/malformed -> 401
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(Auth(nil))
+		r.Use(Auth(cfg))
 		r.GET("/protected", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
 		c.Request = httptest.NewRequest(http.MethodGet, "/protected", nil)
-		c.Request.Header.Set("Authorization", "Bearer valid-token")
+		c.Request.Header.Set("Authorization", "Bearer invalid.token.value")
 		r.ServeHTTP(w, c.Request)
 
 		if w.Code != http.StatusUnauthorized {
-			t.Fatalf("expected 401 on nil validator, got %d", w.Code)
+			t.Fatalf("expected 401 on invalid token, got %d", w.Code)
 		}
 	}
 
-	// 4. Validator returns error
+	// 4. Valid JWT token -> 200 & injects AuthUser
 	{
-		validator := &mockAuthValidator{
-			authenticateFn: func(ctx context.Context, tokenStr string) (*ctxmeta.AuthUser, error) {
-				return nil, errors.New("invalid or expired token")
-			},
-		}
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(Auth(validator))
-		r.GET("/protected", func(ctx *gin.Context) {
-			ctx.Status(http.StatusOK)
-		})
-		c.Request = httptest.NewRequest(http.MethodGet, "/protected", nil)
-		c.Request.Header.Set("Authorization", "Bearer bad-token")
-		r.ServeHTTP(w, c.Request)
-
-		if w.Code != http.StatusUnauthorized {
-			t.Fatalf("expected 401 on validation error, got %d", w.Code)
-		}
-	}
-
-	// 5. Success authentication
-	{
-		validator := &mockAuthValidator{
-			authenticateFn: func(ctx context.Context, tokenStr string) (*ctxmeta.AuthUser, error) {
-				if tokenStr == "good-token" {
-					return validUser, nil
-				}
-				return nil, constants.ErrInvalidToken
-			},
-		}
 		var capturedUser ctxmeta.AuthUser
-		w := httptest.NewRecorder()
-		c, r := gin.CreateTestContext(w)
-		r.Use(Auth(validator))
+		r.Use(Auth(cfg))
 		r.GET("/protected", func(ctx *gin.Context) {
-			u, _ := ctxmeta.GetAuthUser(ctx.Request.Context())
-			capturedUser = u
+			u, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
+			if ok {
+				capturedUser = u
+			}
 			ctx.Status(http.StatusOK)
 		})
 		c.Request = httptest.NewRequest(http.MethodGet, "/protected", nil)
-		c.Request.Header.Set("Authorization", "Bearer good-token")
+		c.Request.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
 		r.ServeHTTP(w, c.Request)
 
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200 on valid token, got %d", w.Code)
 		}
-		if capturedUser.UserID != userID || capturedUser.Email != "user@example.com" {
-			t.Fatalf("unexpected captured user: %+v", capturedUser)
+		if capturedUser.UserID != userID || capturedUser.Email != email || capturedUser.SessionID != "session-123" || capturedUser.Role != "user" {
+			t.Errorf("unexpected captured user: %+v", capturedUser)
+		}
+	}
+
+	// 5. Valid JWT token with custom role -> 200 & captures custom role
+	{
+		adminTokens, err := jwt.GenerateTokenPair(cfg, userID, "admin@example.com", "session-admin", "admin")
+		if err != nil {
+			t.Fatalf("failed to generate admin token: %v", err)
+		}
+
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		var capturedUser ctxmeta.AuthUser
+		r.Use(Auth(cfg))
+		r.GET("/protected-role", func(ctx *gin.Context) {
+			u, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
+			if ok {
+				capturedUser = u
+			}
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/protected-role", nil)
+		c.Request.Header.Set("Authorization", "Bearer "+adminTokens.AccessToken)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200 on valid admin token, got %d", w.Code)
+		}
+		if capturedUser.Role != "admin" {
+			t.Errorf("expected role 'admin', got '%s'", capturedUser.Role)
+		}
+	}
+
+	// 6. Container method Auth()
+	{
+		mws := New(cfg)
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(mws.Auth())
+		r.GET("/protected", func(ctx *gin.Context) {
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/protected", nil)
+		c.Request.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200 from container Auth(), got %d", w.Code)
+		}
+	}
+
+	// 7. Token with missing role claim -> 401
+	{
+		now := time.Now()
+		noRoleClaims := jwt.CustomClaims{
+			UserID:    userID,
+			SessionID: "sess-no-role",
+			Email:     "norole@example.com",
+			Role:      "",
+			TokenType: "access",
+			RegisteredClaims: jwtgo.RegisteredClaims{
+				Subject:   userID.String(),
+				Issuer:    cfg.AppName,
+				IssuedAt:  jwtgo.NewNumericDate(now),
+				ExpiresAt: jwtgo.NewNumericDate(now.Add(cfg.JWTAccessExpiration)),
+			},
+		}
+		tokenObj := jwtgo.NewWithClaims(jwtgo.SigningMethodHS256, noRoleClaims)
+		tokenStr, err := tokenObj.SignedString([]byte(cfg.JWTSecret))
+		if err != nil {
+			t.Fatalf("failed to sign token without role: %v", err)
+		}
+
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(Auth(cfg))
+		r.GET("/protected", func(ctx *gin.Context) {
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/protected", nil)
+		c.Request.Header.Set("Authorization", "Bearer "+tokenStr)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401 on token with missing role claim, got %d", w.Code)
 		}
 	}
 }
 
-func TestOptionalAuth(t *testing.T) {
+func TestOptionalAuthMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	cfg := setupTestAuthConfig()
 
 	userID := uuid.New()
-	validUser := &ctxmeta.AuthUser{
-		UserID: userID,
-		Email:  "user@example.com",
+	email := "opt@example.com"
+	tokens, err := jwt.GenerateTokenPair(cfg, userID, email, "session-opt")
+	if err != nil {
+		t.Fatalf("failed to generate test token: %v", err)
 	}
 
-	validator := &mockAuthValidator{
-		authenticateFn: func(ctx context.Context, tokenStr string) (*ctxmeta.AuthUser, error) {
-			if tokenStr == "good-token" {
-				return validUser, nil
+	// 1. Without Authorization header -> 200, no user injected
+	{
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(OptionalAuth(cfg))
+		r.GET("/optional", func(ctx *gin.Context) {
+			_, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
+			if ok {
+				t.Error("expected no AuthUser in context when header missing")
 			}
-			return nil, constants.ErrInvalidToken
-		},
-	}
-
-	// 1. Without header - passes through as guest
-	{
-		w := httptest.NewRecorder()
-		c, r := gin.CreateTestContext(w)
-		r.Use(OptionalAuth(validator))
-		var capturedUser ctxmeta.AuthUser
-		var hasUser bool
-		r.GET("/optional", func(ctx *gin.Context) {
-			capturedUser, hasUser = ctxmeta.GetAuthUser(ctx.Request.Context())
 			ctx.Status(http.StatusOK)
 		})
 		c.Request = httptest.NewRequest(http.MethodGet, "/optional", nil)
 		r.ServeHTTP(w, c.Request)
 
 		if w.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d", w.Code)
-		}
-		if hasUser {
-			t.Fatalf("expected no user on guest request, got %+v", capturedUser)
+			t.Fatalf("expected 200 on missing header in OptionalAuth, got %d", w.Code)
 		}
 	}
 
-	// 2. With valid header - authenticates
+	// 2. With valid Authorization header -> 200, user injected
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(OptionalAuth(validator))
 		var capturedUser ctxmeta.AuthUser
-		var hasUser bool
+		r.Use(OptionalAuth(cfg))
 		r.GET("/optional", func(ctx *gin.Context) {
-			capturedUser, hasUser = ctxmeta.GetAuthUser(ctx.Request.Context())
+			u, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
+			if ok {
+				capturedUser = u
+			}
 			ctx.Status(http.StatusOK)
 		})
 		c.Request = httptest.NewRequest(http.MethodGet, "/optional", nil)
-		c.Request.Header.Set("Authorization", "Bearer good-token")
+		c.Request.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
 		r.ServeHTTP(w, c.Request)
 
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d", w.Code)
 		}
-		if !hasUser || capturedUser.UserID != userID {
-			t.Fatalf("expected authenticated user, got hasUser=%v, user=%+v", hasUser, capturedUser)
+		if capturedUser.UserID != userID || capturedUser.Email != email {
+			t.Errorf("unexpected captured user in OptionalAuth: %+v", capturedUser)
+		}
+	}
+
+	// 3. Container method OptionalAuth()
+	{
+		mws := New(cfg)
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(mws.OptionalAuth())
+		r.GET("/optional", func(ctx *gin.Context) {
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/optional", nil)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200 from container OptionalAuth(), got %d", w.Code)
+		}
+	}
+
+	// 4. Token without role claim -> 200 but does NOT inject AuthUser
+	{
+		now := time.Now()
+		noRoleClaims := jwt.CustomClaims{
+			UserID:    userID,
+			SessionID: "sess-opt-no-role",
+			Email:     "norole-opt@example.com",
+			Role:      "",
+			TokenType: "access",
+			RegisteredClaims: jwtgo.RegisteredClaims{
+				Subject:   userID.String(),
+				Issuer:    cfg.AppName,
+				IssuedAt:  jwtgo.NewNumericDate(now),
+				ExpiresAt: jwtgo.NewNumericDate(now.Add(cfg.JWTAccessExpiration)),
+			},
+		}
+		tokenObj := jwtgo.NewWithClaims(jwtgo.SigningMethodHS256, noRoleClaims)
+		tokenStr, err := tokenObj.SignedString([]byte(cfg.JWTSecret))
+		if err != nil {
+			t.Fatalf("failed to sign token without role: %v", err)
+		}
+
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		injected := false
+		r.Use(OptionalAuth(cfg))
+		r.GET("/optional", func(ctx *gin.Context) {
+			_, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
+			injected = ok
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/optional", nil)
+		c.Request.Header.Set("Authorization", "Bearer "+tokenStr)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200 on OptionalAuth even with malformed role, got %d", w.Code)
+		}
+		if injected {
+			t.Error("expected AuthUser NOT to be injected when role claim is missing")
 		}
 	}
 }
@@ -208,9 +315,7 @@ func TestOptionalAuth(t *testing.T) {
 func TestRequirePermission(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	userID := uuid.New()
-
-	// 1. Unauthenticated request -> 401
+	// 1. Unauthenticated -> 401
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
@@ -222,24 +327,24 @@ func TestRequirePermission(t *testing.T) {
 		r.ServeHTTP(w, c.Request)
 
 		if w.Code != http.StatusUnauthorized {
-			t.Fatalf("expected 401 on unauthenticated request, got %d", w.Code)
+			t.Fatalf("expected 401 on missing auth context, got %d", w.Code)
 		}
 	}
 
-	// 2. Authenticated but missing permission -> 403
+	// 2. Insufficient permission -> 403
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
 		r.Use(func(ctx *gin.Context) {
 			ctx.Request = ctx.Request.WithContext(ctxmeta.WithAuthUser(ctx.Request.Context(), ctxmeta.AuthUser{
-				UserID:      userID,
+				UserID:      uuid.New(),
 				Email:       "user@example.com",
-				Role:        "member",
-				Permissions: []string{"reports:read"},
+				Role:        "guest",
+				Permissions: []string{"users:read"},
 			}))
 			ctx.Next()
 		})
-		r.Use(RequirePermission("users:read"))
+		r.Use(RequirePermission("users:delete"))
 		r.GET("/perm-test", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -247,17 +352,17 @@ func TestRequirePermission(t *testing.T) {
 		r.ServeHTTP(w, c.Request)
 
 		if w.Code != http.StatusForbidden {
-			t.Fatalf("expected 403 on missing permission, got %d", w.Code)
+			t.Fatalf("expected 403 on insufficient permission, got %d", w.Code)
 		}
 	}
 
-	// 3. Authenticated with matching permission -> 200
+	// 3. Matching permission -> 200
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
 		r.Use(func(ctx *gin.Context) {
 			ctx.Request = ctx.Request.WithContext(ctxmeta.WithAuthUser(ctx.Request.Context(), ctxmeta.AuthUser{
-				UserID:      userID,
+				UserID:      uuid.New(),
 				Email:       "user@example.com",
 				Role:        "member",
 				Permissions: []string{"users:read"},
@@ -276,13 +381,13 @@ func TestRequirePermission(t *testing.T) {
 		}
 	}
 
-	// 4. Authenticated with wildcard permission -> 200
+	// 4. Wildcard permission "*" -> 200
 	{
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
 		r.Use(func(ctx *gin.Context) {
 			ctx.Request = ctx.Request.WithContext(ctxmeta.WithAuthUser(ctx.Request.Context(), ctxmeta.AuthUser{
-				UserID:      userID,
+				UserID:      uuid.New(),
 				Email:       "admin@example.com",
 				Role:        "admin",
 				Permissions: []string{"*"},
@@ -298,6 +403,100 @@ func TestRequirePermission(t *testing.T) {
 
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200 on wildcard permission, got %d", w.Code)
+		}
+	}
+}
+
+func TestAnonAuthMiddleware(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := setupTestAuthConfig()
+
+	anonToken, err := jwt.GenerateAnonToken(cfg)
+	if err != nil {
+		t.Fatalf("failed to generate anon token: %v", err)
+	}
+
+	userToken, err := jwt.GenerateTokenPair(cfg, uuid.New(), "user@example.com", "sess-1")
+	if err != nil {
+		t.Fatalf("failed to generate user token: %v", err)
+	}
+
+	// 1. Missing header -> 401
+	{
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(AnonAuth(cfg))
+		r.GET("/anon-only", func(ctx *gin.Context) {
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/anon-only", nil)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401 on missing anon auth header, got %d", w.Code)
+		}
+	}
+
+	// 2. Non-anon token provided -> 401
+	{
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(AnonAuth(cfg))
+		r.GET("/anon-only", func(ctx *gin.Context) {
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/anon-only", nil)
+		c.Request.Header.Set("Authorization", "Bearer "+userToken.AccessToken)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401 when passing standard user token to AnonAuth, got %d", w.Code)
+		}
+	}
+
+	// 3. Valid anon token -> 200 & injects AuthUser with Role "anonymous"
+	{
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		var capturedUser ctxmeta.AuthUser
+		r.Use(AnonAuth(cfg))
+		r.GET("/anon-only", func(ctx *gin.Context) {
+			u, ok := ctxmeta.GetAuthUser(ctx.Request.Context())
+			if ok {
+				capturedUser = u
+			}
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/anon-only", nil)
+		c.Request.Header.Set("Authorization", "Bearer "+anonToken.AccessToken)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200 on valid anon token, got %d", w.Code)
+		}
+		if capturedUser.Role != "anonymous" {
+			t.Errorf("expected role 'anonymous', got '%s'", capturedUser.Role)
+		}
+		if capturedUser.UserID == uuid.Nil {
+			t.Error("expected valid anon UserID, got Nil")
+		}
+	}
+
+	// 4. Container method AnonAuth()
+	{
+		mws := New(cfg)
+		w := httptest.NewRecorder()
+		c, r := gin.CreateTestContext(w)
+		r.Use(mws.AnonAuth())
+		r.GET("/anon-only", func(ctx *gin.Context) {
+			ctx.Status(http.StatusOK)
+		})
+		c.Request = httptest.NewRequest(http.MethodGet, "/anon-only", nil)
+		c.Request.Header.Set("Authorization", "Bearer "+anonToken.AccessToken)
+		r.ServeHTTP(w, c.Request)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200 from container AnonAuth(), got %d", w.Code)
 		}
 	}
 }

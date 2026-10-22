@@ -1,19 +1,11 @@
 package middlewares_test
 
 import (
-	"context"
 	"testing"
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/middlewares"
-	"code-base-golang/internal/pkg/ctxmeta"
 )
-
-type mockContainerAuthValidator struct{}
-
-func (m *mockContainerAuthValidator) Authenticate(ctx context.Context, tokenStr string) (*ctxmeta.AuthUser, error) {
-	return nil, nil
-}
 
 func TestMiddlewaresContainer(t *testing.T) {
 	cfg := config.Config{
@@ -25,9 +17,8 @@ func TestMiddlewaresContainer(t *testing.T) {
 		BasicAuthUsername:  "admin",
 		BasicAuthPassword:  "secret",
 	}
-	val := &mockContainerAuthValidator{}
 
-	container := middlewares.New(cfg, val)
+	container := middlewares.New(cfg)
 
 	if authFn := container.Auth(); authFn == nil {
 		t.Error("expected container.Auth() to return non-nil handler")
