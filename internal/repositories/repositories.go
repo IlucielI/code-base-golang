@@ -29,17 +29,11 @@ func New(db *gorm.DB, rdb ...*redis.Redis) *Repositories {
 
 // DB returns the underlying GORM database instance.
 func (r *Repositories) DB() *gorm.DB {
-	if r == nil {
-		return nil
-	}
 	return r.db
 }
 
 // Redis returns the underlying Redis adapter instance.
 func (r *Repositories) Redis() *redis.Redis {
-	if r == nil {
-		return nil
-	}
 	return r.rdb
 }
 
