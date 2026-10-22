@@ -123,24 +123,9 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers) *gin.Engine {
 				log.Fatalf("route configuration error: middleware '%s' (method '%s') not found on Middlewares for route %s %s", mwClean, mwMethodName, r.Method, r.Path)
 			}
 
-			var mwHandler gin.HandlerFunc
-			isZeroArg := mwMethod.Type().NumIn() == 0
-			isVariadicZeroArg := mwMethod.Type().IsVariadic() && mwMethod.Type().NumIn() == 1
-			if (isZeroArg || isVariadicZeroArg) && mwMethod.Type().NumOut() == 1 {
-				res := mwMethod.Call(nil)[0].Interface()
-				var isHandler bool
-				mwHandler, isHandler = res.(gin.HandlerFunc)
-				if !isHandler {
-					log.Fatalf("route configuration error: middleware method '%s' must return gin.HandlerFunc", mwMethodName)
-				}
-			} else if mwMethod.Type().NumIn() == 1 && mwMethod.Type().NumOut() == 0 {
-				var isHandler bool
-				mwHandler, isHandler = mwMethod.Interface().(func(*gin.Context))
-				if !isHandler {
-					log.Fatalf("route configuration error: middleware method '%s' must have signature func(*gin.Context)", mwMethodName)
-				}
-			} else {
-				log.Fatalf("route configuration error: middleware method '%s' must have signature func() gin.HandlerFunc or func(*gin.Context)", mwMethodName)
+			mwHandler, ok := mwMethod.Interface().(func(*gin.Context))
+			if !ok {
+				log.Fatalf("route configuration error: middleware method '%s' must have signature func(*gin.Context)", mwMethodName)
 			}
 
 			handlers = append(handlers, mwHandler)

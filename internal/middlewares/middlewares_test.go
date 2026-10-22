@@ -3,6 +3,8 @@ package middlewares_test
 import (
 	"testing"
 
+	"github.com/gin-gonic/gin"
+
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/middlewares"
 )
@@ -20,12 +22,19 @@ func TestMiddlewaresContainer(t *testing.T) {
 
 	container := middlewares.New(cfg)
 
-	if authFn := container.Auth(); authFn == nil {
-		t.Error("expected container.Auth() to return non-nil handler")
+	var authFn gin.HandlerFunc = container.Auth
+	if authFn == nil {
+		t.Error("expected container.Auth to be non-nil handler")
 	}
 
-	if optFn := container.OptionalAuth(); optFn == nil {
-		t.Error("expected container.OptionalAuth() to return non-nil handler")
+	var anonFn gin.HandlerFunc = container.AnonAuth
+	if anonFn == nil {
+		t.Error("expected container.AnonAuth to be non-nil handler")
+	}
+
+	var optFn gin.HandlerFunc = container.OptionalAuth
+	if optFn == nil {
+		t.Error("expected container.OptionalAuth to be non-nil handler")
 	}
 
 	if permFn := container.RequirePermission("users:read"); permFn == nil {
@@ -56,11 +65,8 @@ func TestMiddlewaresContainer(t *testing.T) {
 		t.Error("expected container.BodyLimit() to return non-nil handler")
 	}
 
-	if basicFn := container.BasicAuth(); basicFn == nil {
-		t.Error("expected container.BasicAuth() to return non-nil handler")
-	}
-
-	if basicExplicit := container.BasicAuth("custom", "pass"); basicExplicit == nil {
-		t.Error("expected container.BasicAuth(user, pass) to return non-nil handler")
+	var basicFn gin.HandlerFunc = container.BasicAuth
+	if basicFn == nil {
+		t.Error("expected container.BasicAuth to be non-nil handler")
 	}
 }
