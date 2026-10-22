@@ -10,7 +10,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/dtos"
 )
 
 type clientVisitor struct {
@@ -70,6 +69,17 @@ func (rl *RateLimiter) getVisitor(ip string) *rate.Limiter {
 	return v.limiter
 }
 
+// RateLimit returns the rate limiter middleware from the Middlewares container.
+// It uses the configured limiter or falls back to no-op if disabled.
+func (m *Middlewares) RateLimit() gin.HandlerFunc {
+	if m.limiter == nil {
+		return func(c *gin.Context) {
+			c.Next()
+		}
+	}
+	return buildRateLimitHandler(m.limiter, float64(m.limiter.rate))
+}
+
 // RateLimit creates a Gin middleware that enforces per-client IP rate limits.
 func RateLimit(limit float64, burst int, enabled ...bool) gin.HandlerFunc {
 	isEnabled := true
@@ -84,7 +94,10 @@ func RateLimit(limit float64, burst int, enabled ...bool) gin.HandlerFunc {
 	}
 
 	limiter := NewRateLimiter(limit, burst)
+	return buildRateLimitHandler(limiter, limit)
+}
 
+func buildRateLimitHandler(limiter *RateLimiter, limit float64) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		clientLimiter := limiter.getVisitor(ip)
@@ -93,12 +106,7 @@ func RateLimit(limit float64, burst int, enabled ...bool) gin.HandlerFunc {
 
 		if !clientLimiter.Allow() {
 			c.Header("Retry-After", "1")
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, dtos.BaseResponse{
-				Status:    constants.ResponseStatusFail,
-				Code:      constants.ResponseCodeTooManyRequests,
-				Message:   constants.ErrTooManyRequests.Message,
-				Timestamp: time.Now().UTC(),
-			})
+			abortError(c, http.StatusTooManyRequests, constants.ResponseCodeTooManyRequests, constants.ErrTooManyRequests.Message)
 			return
 		}
 

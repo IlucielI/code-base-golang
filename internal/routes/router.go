@@ -39,26 +39,28 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator 
 
 	router := gin.New()
 
-	corsCfg := middlewares.CORSConfig{
-		AllowedOrigins:   cfg.CORSAllowedOrigins,
-		AllowedMethods:   cfg.CORSAllowedMethods,
-		AllowedHeaders:   cfg.CORSAllowedHeaders,
-		AllowCredentials: cfg.CORSAllowCredentials,
-		MaxAge:           cfg.CORSMaxAge,
+	// Auth validator for protected routes
+	var validator middlewares.AuthValidator
+	if len(authValidator) > 0 && authValidator[0] != nil {
+		validator = authValidator[0]
 	}
+
+	// Central middlewares container
+	mws := middlewares.New(cfg, validator)
 
 	// OpenTelemetry HTTP server instrumentation (only when tracing is enabled).
 	if cfg.TracingEnabled {
 		router.Use(otelgin.Middleware(cfg.TracingServiceName))
 	}
 
+	// Global middleware stack
 	router.Use(
-		middlewares.StructuredLogger(),
-		middlewares.Recovery(),
-		middlewares.CORS(corsCfg),
-		middlewares.RateLimit(cfg.RateLimiterLimit, cfg.RateLimiterBurst, cfg.RateLimiterEnabled),
-		middlewares.ClientMeta(),
-		middlewares.BodyLimit(cfg.MaxRequestBodySize),
+		mws.Logger(),
+		mws.Recovery(),
+		mws.CORS(),
+		mws.RateLimit(),
+		mws.ClientMeta(),
+		mws.BodyLimit(),
 	)
 
 	// Central controllers container. A fully-wired controller (with a live
@@ -68,12 +70,6 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator 
 		log.Fatal("router configuration error: controllers must not be nil")
 	}
 	ctrlsVal := reflect.ValueOf(ctrls)
-
-	// Auth validator for protected routes
-	var validator middlewares.AuthValidator
-	if len(authValidator) > 0 && authValidator[0] != nil {
-		validator = authValidator[0]
-	}
 
 	// Load and parse embedded YAML routes
 	var rCfg routeConfig
@@ -97,15 +93,15 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator 
 
 		var handlers []gin.HandlerFunc
 		if r.BasicAuth {
-			handlers = append(handlers, middlewares.BasicAuth(cfg.BasicAuthUsername, cfg.BasicAuthPassword))
+			handlers = append(handlers, mws.BasicAuth())
 		}
 		if r.Permission != "" {
 			if !r.Auth {
-				handlers = append(handlers, middlewares.Auth(validator))
+				handlers = append(handlers, mws.Auth())
 			}
-			handlers = append(handlers, middlewares.RequirePermission(r.Permission))
+			handlers = append(handlers, mws.RequirePermission(r.Permission))
 		} else if r.Auth {
-			handlers = append(handlers, middlewares.Auth(validator))
+			handlers = append(handlers, mws.Auth())
 		}
 		handlers = append(handlers, fn)
 

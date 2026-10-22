@@ -32,6 +32,11 @@ func WithRecoveryWriter(w io.Writer) RecoveryOption {
 	}
 }
 
+// Recovery returns the panic recovery middleware from the Middlewares container.
+func (m *Middlewares) Recovery(opts ...RecoveryOption) gin.HandlerFunc {
+	return Recovery(opts...)
+}
+
 // Recovery returns a Gin middleware that recovers from any panics, logs the stack trace server-side,
 // and returns a unified HTTP 500 JSON error envelope without exposing internal details.
 func Recovery(opts ...RecoveryOption) gin.HandlerFunc {
