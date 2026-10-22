@@ -1,0 +1,78 @@
+# .gitlab-ci.yml - GitLab CI/CD Pipeline
+# Documentation: https://docs.gitlab.com/ee/ci/
+
+stages:
+  - lint
+  - test
+  - build
+  - docker
+
+variables:
+  GOPATH: "$CI_PROJECT_DIR/.go"
+
+cache:
+  key:
+    files:
+      - go.mod
+      - go.sum
+  paths:
+    - .go/pkg/mod/
+
+lint:
+  stage: lint
+  image: golangci/golangci-lint:v1.64.6-alpine
+  script:
+    - golangci-lint run --timeout 5m --config .golangci.yml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+unit-tests:
+  stage: test
+  image: golang:alpine
+  before_script:
+    - apk add --no-cache gcc musl-dev git
+  script:
+    - go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+    - go tool cover -func=coverage.out
+  coverage: '/total:\s+\(statements\)\s+(\d+.\d+)%/'
+  artifacts:
+    name: "coverage-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - coverage.out
+    expire_in: 14 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+binary-build:
+  stage: build
+  image: golang:alpine
+  script:
+    - mkdir -p bin
+    - CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/api cmd/api/main.go
+  artifacts:
+    name: "api-binary-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - bin/api
+    expire_in: 1 day
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+docker-build:
+  stage: docker
+  image: docker:27-cli
+  services:
+    - docker:27-dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: "tcp://docker:2375"
+  before_script:
+    - docker info
+  script:
+    - chmod +x deployment/*.sh
+    - ./deployment/build.sh
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
