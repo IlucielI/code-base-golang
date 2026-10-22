@@ -49,16 +49,32 @@ func TestAuthUser(t *testing.T) {
 
 	// Injected
 	expectedUser := AuthUser{
-		Email:     "user@example.com",
-		SessionID: "sess-12345",
+		Email:       "user@example.com",
+		SessionID:   "sess-12345",
+		Role:        "admin",
+		Permissions: []string{"users:read", "users:write"},
 	}
 	ctx = WithAuthUser(ctx, expectedUser)
 	user, ok := GetAuthUser(ctx)
 	if !ok {
 		t.Fatal("expected auth user to be present")
 	}
-	if user.Email != expectedUser.Email || user.SessionID != expectedUser.SessionID {
+	if user.Email != expectedUser.Email || user.SessionID != expectedUser.SessionID || user.Role != expectedUser.Role {
 		t.Fatalf("expected user %+v, got %+v", expectedUser, user)
+	}
+	if !user.HasPermission("users:read") {
+		t.Fatal("expected user to have 'users:read' permission")
+	}
+	if user.HasPermission("billing:admin") {
+		t.Fatal("expected user not to have 'billing:admin' permission")
+	}
+
+	superUser := AuthUser{
+		Role:        "superadmin",
+		Permissions: []string{"*"},
+	}
+	if !superUser.HasPermission("anything:whatever") {
+		t.Fatal("expected wildcard user to have any permission")
 	}
 
 	// Nil context in WithAuthUser
