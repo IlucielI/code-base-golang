@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"code-base-golang/internal/config"
+	"code-base-golang/internal/constants"
 	"code-base-golang/internal/pkg/ctxmeta"
 	"code-base-golang/internal/pkg/jwt"
 )
@@ -112,7 +113,7 @@ func TestAuthMiddleware(t *testing.T) {
 
 	// 5. Valid JWT token with custom role -> 200 & captures custom role
 	{
-		adminTokens, err := jwt.GenerateTokenPair(cfg, userID, "admin@example.com", "session-admin", "admin")
+		adminTokens, err := jwt.GenerateTokenPair(cfg, userID, "admin@example.com", "session-admin", constants.RoleAdmin)
 		if err != nil {
 			t.Fatalf("failed to generate admin token: %v", err)
 		}
@@ -135,8 +136,8 @@ func TestAuthMiddleware(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200 on valid admin token, got %d", w.Code)
 		}
-		if capturedUser.Role != "admin" {
-			t.Errorf("expected role 'admin', got '%s'", capturedUser.Role)
+		if capturedUser.Role != constants.RoleAdmin {
+			t.Errorf("expected role '%s', got '%s'", constants.RoleAdmin, capturedUser.Role)
 		}
 	}
 
@@ -358,7 +359,7 @@ func TestRequirePermission(t *testing.T) {
 			ctx.Request = ctx.Request.WithContext(ctxmeta.WithAuthUser(ctx.Request.Context(), ctxmeta.AuthUser{
 				UserID:      uuid.New(),
 				Email:       "admin@example.com",
-				Role:        "admin",
+				Role:        constants.RoleAdmin,
 				Permissions: []string{"*"},
 			}))
 			ctx.Next()
@@ -444,8 +445,8 @@ func TestAnonAuthMiddleware(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200 on valid anon token, got %d", w.Code)
 		}
-		if capturedUser.Role != "anonymous" {
-			t.Errorf("expected role 'anonymous', got '%s'", capturedUser.Role)
+		if capturedUser.Role != constants.RoleAnonymous {
+			t.Errorf("expected role '%s', got '%s'", constants.RoleAnonymous, capturedUser.Role)
 		}
 		if capturedUser.UserID == uuid.Nil {
 			t.Error("expected valid anon UserID, got Nil")

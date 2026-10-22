@@ -57,14 +57,14 @@ func (m *Middlewares) AnonAuth(c *gin.Context) {
 		return
 	}
 
-	if claims.TokenType != "anon" && claims.Role != "anonymous" {
+	if claims.TokenType != constants.TokenTypeAnon && claims.Role != constants.RoleAnonymous {
 		abortError(c, http.StatusUnauthorized, constants.ResponseCodeUnauthorized, "invalid anonymous token")
 		return
 	}
 
 	authUser := ctxmeta.AuthUser{
 		UserID: claims.UserID,
-		Role:   "anonymous",
+		Role:   constants.RoleAnonymous,
 	}
 
 	c.Request = c.Request.WithContext(ctxmeta.WithAuthUser(c.Request.Context(), authUser))
