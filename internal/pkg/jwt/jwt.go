@@ -17,21 +17,29 @@ type CustomClaims struct {
 	UserID    uuid.UUID `json:"sub"`
 	SessionID string    `json:"sid"`
 	Email     string    `json:"email"`
-	TokenType string    `json:"type"` // "access" or "refresh"
+	Role      string    `json:"role,omitempty"`
+	TokenType string    `json:"type"` // "access", "refresh", or "anon"
 	jwt.RegisteredClaims
 }
 
 // GenerateTokenPair signs and returns a new Access Token and Refresh Token pair.
-func GenerateTokenPair(cfg config.Config, userID uuid.UUID, email string, sessionID string) (*dtos.TokenResponse, error) {
+// An optional role can be specified (defaults to "user").
+func GenerateTokenPair(cfg config.Config, userID uuid.UUID, email string, sessionID string, role ...string) (*dtos.TokenResponse, error) {
 	now := time.Now()
 	accessExp := now.Add(cfg.JWTAccessExpiration)
 	refreshExp := now.Add(cfg.JWTRefreshExpiration)
+
+	assignedRole := "user"
+	if len(role) > 0 && role[0] != "" {
+		assignedRole = role[0]
+	}
 
 	// 1. Access Token
 	accessClaims := CustomClaims{
 		UserID:    userID,
 		SessionID: sessionID,
 		Email:     email,
+		Role:      assignedRole,
 		TokenType: "access",
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID.String(),
@@ -92,4 +100,34 @@ func ValidateToken(cfg config.Config, tokenStr string) (*CustomClaims, error) {
 	}
 
 	return claims, nil
+}
+
+// GenerateAnonToken signs and returns an anonymous guest token.
+func GenerateAnonToken(cfg config.Config) (*dtos.TokenResponse, error) {
+	now := time.Now()
+	exp := now.Add(cfg.JWTAccessExpiration)
+	guestID := uuid.New()
+
+	claims := CustomClaims{
+		UserID:    guestID,
+		Role:      "anonymous",
+		TokenType: "anon",
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   guestID.String(),
+			Issuer:    cfg.AppName,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(exp),
+		},
+	}
+	tokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := tokenObj.SignedString([]byte(cfg.JWTSecret))
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign anon token: %w", err)
+	}
+
+	return &dtos.TokenResponse{
+		AccessToken: tokenStr,
+		TokenType:   "Bearer",
+		ExpiresIn:   int64(cfg.JWTAccessExpiration.Seconds()),
+	}, nil
 }

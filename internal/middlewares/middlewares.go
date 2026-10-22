@@ -15,21 +15,19 @@ import (
 
 // Middlewares is the central container for route-level and global middleware methods.
 type Middlewares struct {
-	cfg       config.Config
-	validator AuthValidator
-	limiter   *RateLimiter
+	cfg     config.Config
+	limiter *RateLimiter
 }
 
 // New initializes the central middlewares container with dependencies.
-func New(cfg config.Config, validator AuthValidator) *Middlewares {
+func New(cfg config.Config) *Middlewares {
 	var limiter *RateLimiter
 	if cfg.RateLimiterEnabled && cfg.RateLimiterLimit > 0 && cfg.RateLimiterBurst > 0 {
 		limiter = NewRateLimiter(cfg.RateLimiterLimit, cfg.RateLimiterBurst)
 	}
 	return &Middlewares{
-		cfg:       cfg,
-		validator: validator,
-		limiter:   limiter,
+		cfg:     cfg,
+		limiter: limiter,
 	}
 }
 

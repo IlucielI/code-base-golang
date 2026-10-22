@@ -10,7 +10,9 @@ routes:
   - method: GET
     path: /openapi.yaml
     handler: OpenAPISpec
+    middlewares: [basic_auth]
 
   - method: GET
     path: /docs
     handler: APIDocs
+    middlewares: [basic_auth]

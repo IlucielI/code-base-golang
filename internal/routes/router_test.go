@@ -137,12 +137,27 @@ func TestRouter_DocsEndpoints(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		t.Run(tc.path, func(t *testing.T) {
+		t.Run(tc.path+"_Unauthorized", func(t *testing.T) {
 			w := httptest.NewRecorder()
 			req, err := http.NewRequest(http.MethodGet, tc.path, nil)
 			if err != nil {
 				t.Fatalf("failed to create request for %s: %v", tc.path, err)
 			}
+
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusUnauthorized {
+				t.Fatalf("expected status 401 unauthorized for unauthenticated %s, got %d", tc.path, w.Code)
+			}
+		})
+
+		t.Run(tc.path+"_Authorized", func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req, err := http.NewRequest(http.MethodGet, tc.path, nil)
+			if err != nil {
+				t.Fatalf("failed to create request for %s: %v", tc.path, err)
+			}
+			req.SetBasicAuth(cfg.BasicAuthUsername, cfg.BasicAuthPassword)
 
 			router.ServeHTTP(w, req)
 

@@ -22,8 +22,6 @@ type routeItem struct {
 	Method      string   `yaml:"method"`
 	Path        string   `yaml:"path"`
 	Handler     string   `yaml:"handler"`
-	Auth        bool     `yaml:"auth,omitempty"`
-	BasicAuth   bool     `yaml:"basic_auth,omitempty"`
 	Permission  string   `yaml:"permission,omitempty"`
 	Middlewares []string `yaml:"middlewares,omitempty"`
 }
@@ -56,21 +54,15 @@ type routeConfig struct {
 }
 
 // NewRouter constructs the central Gin engine and wires controllers and middleware.
-func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator ...middlewares.AuthValidator) *gin.Engine {
+func NewRouter(cfg config.Config, ctrls *controllers.Controllers) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	router := gin.New()
 
-	// Auth validator for protected routes
-	var validator middlewares.AuthValidator
-	if len(authValidator) > 0 && authValidator[0] != nil {
-		validator = authValidator[0]
-	}
-
 	// Central middlewares container
-	mws := middlewares.New(cfg, validator)
+	mws := middlewares.New(cfg)
 	mwsVal := reflect.ValueOf(mws)
 
 	// OpenTelemetry HTTP server instrumentation (only when tracing is enabled).
@@ -132,7 +124,9 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator 
 			}
 
 			var mwHandler gin.HandlerFunc
-			if mwMethod.Type().NumIn() == 0 && mwMethod.Type().NumOut() == 1 {
+			isZeroArg := mwMethod.Type().NumIn() == 0
+			isVariadicZeroArg := mwMethod.Type().IsVariadic() && mwMethod.Type().NumIn() == 1
+			if (isZeroArg || isVariadicZeroArg) && mwMethod.Type().NumOut() == 1 {
 				res := mwMethod.Call(nil)[0].Interface()
 				var isHandler bool
 				mwHandler, isHandler = res.(gin.HandlerFunc)
@@ -152,16 +146,8 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, authValidator 
 			handlers = append(handlers, mwHandler)
 		}
 
-		if r.BasicAuth {
-			handlers = append(handlers, mws.BasicAuth())
-		}
 		if r.Permission != "" {
-			if !r.Auth {
-				handlers = append(handlers, mws.Auth())
-			}
 			handlers = append(handlers, mws.RequirePermission(r.Permission))
-		} else if r.Auth {
-			handlers = append(handlers, mws.Auth())
 		}
 		handlers = append(handlers, fn)
 
