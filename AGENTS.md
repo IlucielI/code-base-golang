@@ -31,14 +31,22 @@ This document defines the architectural invariants, conventions, and workflows f
   - `workers.EventSubscriber` (`internal/workers/subscriber.go`)
 - Concrete adapters (`database`, `redis`, `s3`, `rabbitmq`, `smtp`) live in `internal/adapters/` and are injected in `cmd/api/main.go`.
 
-### 2.2. Declarative Route Configuration
+### 2.2. Declarative Route Configuration & Middlewares
 - Routes are declared in `internal/routes/routes.yaml`.
-- The router maps handlers, HTTP methods, middlewares, and rate-limiting from this YAML file.
+- The router maps handlers, HTTP methods, middlewares, and permissions from this YAML file without manual Go router wiring.
 - Register any new endpoints in `routes.yaml` rather than manually calling `router.GET(...)` in Go code.
+- **Route-Level Middlewares**: Middlewares defined in `routes.yaml` (e.g. `auth`, `basic_auth`, `anon_auth`, `optional_auth`) must have the direct signature `func(*gin.Context)` on `*Middlewares` (`internal/middlewares/`). The router converts YAML snake_case names to PascalCase methods via `strutil.ToPascalCase` (`internal/pkg/strutil`) and binds them without reflection call overhead.
+- **Granular Permissions**: Declared via `permission: "<resource>:<action>"` in `routes.yaml` and mapped directly to `mws.RequirePermission(r.Permission)`.
+- **API Documentation Protection**: The OpenAPI specification (`/openapi.yaml`) and interactive Scalar UI (`/docs`) are protected via `middlewares: [basic_auth]` declared directly in `routes.yaml`.
 
 ### 2.3. Database Migrations
 - Migration files live in `migrations/` named `<timestamp>_<name>.up.sql` and `<timestamp>_<name>.down.sql`.
 - When `AUTO_MIGRATE=true`, migrations apply automatically on application/container startup after database connectivity is confirmed.
+
+### 2.4. Container Construction & Nil-Receiver Policy
+- Application container structs (`*Service`, `*Repositories`, `*Controllers`, `*Middlewares`, `*WorkerServer`) are guaranteed non-nil by construction at startup (`cmd/api/main.go`).
+- **NEVER** write defensive `if s == nil`, `if r == nil`, or `if w == nil` receiver checks on container methods or getters. If a container is nil, it represents a fatal initialization bug that must fail fast, not silently return nil.
+- Sub-adapter availability (e.g. optional RabbitMQ broker or Redis connection) should be guarded at the field level (e.g. `if r.rdb == nil` or `if w.sub == nil`), not at the container pointer level.
 
 ---
 
@@ -67,14 +75,16 @@ This document defines the architectural invariants, conventions, and workflows f
 
 ## 4. Core Coding Conventions
 
-0. **File Naming Suffixes (MANDATORY)**:
+0. **File Naming Suffixes & Constants Conventions (MANDATORY)**:
    - Files in the following packages **MUST** carry a role suffix so each file's layer is unambiguous. This applies to every file in the package, including shared/base ones (e.g. the response envelope and base model), for consistency.
      - `internal/dtos/` → `*_dto.go` (e.g. `recording_dto.go`, `response_dto.go`, `pagination_dto.go`)
      - `internal/models/` → `*_model.go` (e.g. `recording_model.go`, `base_model.go`)
      - `internal/validations/` → `*_validation.go` (e.g. `recording_validation.go`)
    - Test files append the suffix before `_test.go` (e.g. `recording_dto_test.go`, `base_model_test.go`).
    - Rationale: these layers hold many small per-entity files; the suffix keeps the editor's file list self-describing and prevents name collisions across layers (e.g. a `recording` DTO vs. a `recording` model).
-   - **No suffix elsewhere.** Other packages name files by topic, not role — e.g. `internal/constants/` uses one file per topic/domain (`error.go`, `response.go`, `worker.go`, `<domain>.go`); do **not** create `*_constant.go` (it stutters with the package name). The same applies to `pkg/`, `adapters/`, etc.
+   - **No suffix elsewhere.** Other packages name files by topic, not role:
+     - `internal/constants/` uses one file per topic/domain (`error.go`, `response.go`, `worker.go`, `auth.go`, `logger.go`, `<domain>.go`); do **not** create `*_constant.go` (it stutters with the package name).
+     - Magic strings/numbers for token types (`constants.TokenType*`), user roles (`constants.Role*`), and log levels (`constants.LogLevel*`) **MUST** be defined in `internal/constants/` rather than hardcoded in services, middlewares, or handlers.
 0a. **DTO Naming & Layering (MANDATORY)**:
    - **Struct naming** — two roles only:
      - Input payloads: `<Name>Request` for JSON bodies, `<Name>Query` for query-string/list params (the latter usually carries `SetDefaults()`).
