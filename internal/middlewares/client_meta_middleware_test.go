@@ -7,14 +7,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"code-base-golang/internal/config"
 	"code-base-golang/internal/pkg/ctxmeta"
 )
 
 func TestClientMetaMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
+	mws := New(config.Config{})
 	router := gin.New()
-	router.Use(ClientMeta())
+	router.Use(mws.ClientMeta())
 
 	var capturedIP, capturedUA string
 
