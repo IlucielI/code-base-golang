@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"code-base-golang/internal/constants"
 	"code-base-golang/internal/pkg/ctxmeta"
 )
 
@@ -83,12 +85,12 @@ func (m *Middlewares) StructuredLogger(opts ...LoggerOption) gin.HandlerFunc {
 
 		var level string
 		switch {
-		case statusCode >= 500:
-			level = "ERROR"
-		case statusCode >= 400:
-			level = "WARN"
+		case statusCode >= http.StatusInternalServerError:
+			level = constants.LogLevelError
+		case statusCode >= http.StatusBadRequest:
+			level = constants.LogLevelWarn
 		default:
-			level = "INFO"
+			level = constants.LogLevelInfo
 		}
 
 		entry := LogEntry{
