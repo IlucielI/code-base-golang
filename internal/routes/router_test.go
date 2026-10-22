@@ -176,3 +176,24 @@ func TestRouter_DocsEndpoints(t *testing.T) {
 		})
 	}
 }
+
+func TestRouter_MetricsEndpoint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{}
+	ctrls := controllers.New(cfg, services.New(cfg, nil, nil))
+	router := routes.NewRouter(cfg, ctrls)
+
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodGet, "/metrics", nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from /metrics, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "http_requests_total") {
+		t.Errorf("expected /metrics output to contain http_requests_total, got: %s", w.Body.String())
+	}
+}
