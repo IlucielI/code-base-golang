@@ -144,7 +144,7 @@ func TestAuthMiddleware(t *testing.T) {
 		mws := New(cfg)
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(mws.Auth())
+		r.Use(mws.Auth)
 		r.GET("/protected", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -256,7 +256,7 @@ func TestOptionalAuthMiddleware(t *testing.T) {
 		mws := New(cfg)
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(mws.OptionalAuth())
+		r.Use(mws.OptionalAuth)
 		r.GET("/optional", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})
@@ -487,7 +487,7 @@ func TestAnonAuthMiddleware(t *testing.T) {
 		mws := New(cfg)
 		w := httptest.NewRecorder()
 		c, r := gin.CreateTestContext(w)
-		r.Use(mws.AnonAuth())
+		r.Use(mws.AnonAuth)
 		r.GET("/anon-only", func(ctx *gin.Context) {
 			ctx.Status(http.StatusOK)
 		})

@@ -11,16 +11,9 @@ import (
 	"code-base-golang/internal/constants"
 )
 
-// BasicAuth returns the HTTP Basic Authentication middleware from the Middlewares container.
-// It defaults to the configured BasicAuthUsername and BasicAuthPassword, or accepts explicit credentials.
-func (m *Middlewares) BasicAuth(userAndPass ...string) gin.HandlerFunc {
-	user := m.cfg.BasicAuthUsername
-	pass := m.cfg.BasicAuthPassword
-	if len(userAndPass) >= 2 {
-		user = userAndPass[0]
-		pass = userAndPass[1]
-	}
-	return BasicAuth(user, pass)
+// BasicAuth validates HTTP Basic Authentication credentials against the configured username and password.
+func (m *Middlewares) BasicAuth(c *gin.Context) {
+	BasicAuth(m.cfg.BasicAuthUsername, m.cfg.BasicAuthPassword)(c)
 }
 
 // BasicAuth returns a Gin middleware that validates HTTP Basic Authentication credentials.

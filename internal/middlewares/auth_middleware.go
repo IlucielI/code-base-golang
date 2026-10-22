@@ -13,20 +13,20 @@ import (
 	"code-base-golang/internal/pkg/jwt"
 )
 
-// Auth returns a Gin middleware that validates the JWT Bearer token using jwt.ValidateToken.
-func (m *Middlewares) Auth() gin.HandlerFunc {
-	return Auth(m.cfg)
+// Auth validates the JWT Bearer token using jwt.ValidateToken.
+func (m *Middlewares) Auth(c *gin.Context) {
+	Auth(m.cfg)(c)
 }
 
-// AnonAuth returns a Gin middleware that validates an anonymous guest token.
-func (m *Middlewares) AnonAuth() gin.HandlerFunc {
-	return AnonAuth(m.cfg)
+// AnonAuth validates an anonymous guest token.
+func (m *Middlewares) AnonAuth(c *gin.Context) {
+	AnonAuth(m.cfg)(c)
 }
 
-// OptionalAuth returns a Gin middleware that validates the token if present,
-// injecting the AuthUser into context, but does not reject unauthenticated requests.
-func (m *Middlewares) OptionalAuth() gin.HandlerFunc {
-	return OptionalAuth(m.cfg)
+// OptionalAuth validates the token if present, injecting the AuthUser into context,
+// but does not reject unauthenticated requests.
+func (m *Middlewares) OptionalAuth(c *gin.Context) {
+	OptionalAuth(m.cfg)(c)
 }
 
 // RequirePermission returns the permission check middleware from the Middlewares container.
