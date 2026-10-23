@@ -12,7 +12,7 @@ type samplePayload struct {
 
 func TestHandleMessage_Success(t *testing.T) {
 	var gotID string
-	ack := handleMessage(context.Background(), "sample", []byte(`{"id":"abc"}`),
+	ack := HandleMessage(context.Background(), "sample", []byte(`{"id":"abc"}`),
 		func(_ context.Context, p samplePayload) error {
 			gotID = p.ID
 			return nil
@@ -28,7 +28,7 @@ func TestHandleMessage_Success(t *testing.T) {
 
 func TestHandleMessage_ParseError(t *testing.T) {
 	called := false
-	ack := handleMessage(context.Background(), "sample", []byte("not json"),
+	ack := HandleMessage(context.Background(), "sample", []byte("not json"),
 		func(_ context.Context, _ samplePayload) error {
 			called = true
 			return nil
@@ -43,7 +43,7 @@ func TestHandleMessage_ParseError(t *testing.T) {
 }
 
 func TestHandleMessage_ProcessError(t *testing.T) {
-	ack := handleMessage(context.Background(), "sample", []byte(`{"id":"abc"}`),
+	ack := HandleMessage(context.Background(), "sample", []byte(`{"id":"abc"}`),
 		func(_ context.Context, _ samplePayload) error {
 			return errors.New("processing failed")
 		})
@@ -58,7 +58,7 @@ func TestHandleMessage_PropagatesContext(t *testing.T) {
 	ctx := context.WithValue(context.Background(), ctxKey{}, "value")
 
 	var seen any
-	handleMessage(ctx, "sample", []byte(`{"id":"abc"}`),
+	HandleMessage(ctx, "sample", []byte(`{"id":"abc"}`),
 		func(c context.Context, _ samplePayload) error {
 			seen = c.Value(ctxKey{})
 			return nil

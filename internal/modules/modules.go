@@ -6,6 +6,7 @@ import (
 	"code-base-golang/internal/modules/health"
 	"code-base-golang/internal/modules/metrics"
 	"code-base-golang/internal/pkg/controller"
+	"code-base-golang/internal/workers"
 )
 
 // Modules is the central application registry aggregating active domain modules.
@@ -30,5 +31,12 @@ func (m *Modules) Handlers() []controller.Controller {
 		m.Health,
 		m.Docs,
 		m.Metrics,
+	}
+}
+
+// Consumers returns a list of all active domain event consumers for background workers.
+func (m *Modules) Consumers() []workers.Consumer {
+	return []workers.Consumer{
+		// Domain consumers are added here as new modules implement workers.Consumer
 	}
 }

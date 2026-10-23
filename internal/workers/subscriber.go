@@ -16,3 +16,9 @@ type EventSubscriber interface {
 	// MustSubscribe registers a handler and panics on configuration or binding failure.
 	MustSubscribe(topic string, handler WorkerHandler)
 }
+
+// Consumer defines the interface for modular domain event consumers.
+// Each module that listens to queue messages implements this interface.
+type Consumer interface {
+	RegisterWorker(sub EventSubscriber)
+}

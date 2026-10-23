@@ -147,7 +147,7 @@ func main() {
 
 	// Register worker subscription to Message Queue
 	if broker != nil {
-		workerServer := workers.New(cfg, mods, broker)
+		workerServer := workers.New(broker, mods.Consumers()...)
 		workerServer.RegisterWorker()
 	}
 

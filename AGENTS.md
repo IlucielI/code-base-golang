@@ -26,6 +26,7 @@ This document defines the architectural invariants, conventions, and workflows f
 - Business features live strictly within self-contained modules under `internal/modules/<domain>/` (e.g., `internal/modules/health/`, `internal/modules/docs/`, `internal/modules/metrics/`).
 - Each module encapsulates its own domain concerns:
   - `<domain>_controller.go`: HTTP transport handling (embeds `controller.Base`).
+  - `<domain>_consumer.go`: Background queue message handling (implements `workers.Consumer`, optional).
   - `<domain>_module.go`: Module provider exporting `Register(adp *adapters.Adapters) *Controller`.
   - `<domain>_usecase.go`: Pure business logic and domain orchestration.
   - `<domain>_dto.go`: Input payloads (`*Request`, `*Query`) and output payloads (`*Data`).
@@ -38,6 +39,7 @@ This document defines the architectural invariants, conventions, and workflows f
   - `internal/pkg/response/`: Standard envelope types (`APIResponse[T]`, `BaseResponse`).
   - `internal/pkg/pagination/`: Reusable pagination queries, metadata, and database filters (`Query`, `Meta`, `Filter`, `Sort`).
   - `internal/pkg/model/`: Shared GORM entity base (`BaseModel`, `JSONMap`).
+  - `internal/pkg/queue/`: Shared message deserialization helpers (`Parse`, `MustParse`) and common payloads.
   - `internal/pkg/apperror/`: Application error definitions and stack tracing.
 
 ### 2.2. Declarative Route Configuration & Dynamic Dispatch
@@ -83,6 +85,7 @@ This document defines the architectural invariants, conventions, and workflows f
 0. **Module File Naming Suffixes & Organization**:
    - Within each module `internal/modules/<domain>/`:
      - `<domain>_controller.go`: HTTP handler methods.
+     - `<domain>_consumer.go`: AMQP/queue message subscriber (implements `workers.Consumer`).
      - `<domain>_usecase.go`: Business logic implementation.
      - `<domain>_dto.go`: Request and response DTO structs.
      - `<domain>_model.go`: Domain entity and GORM database model.
@@ -92,6 +95,7 @@ This document defines the architectural invariants, conventions, and workflows f
      - `response/`: Response envelopes (`response.go`).
      - `pagination/`: Pagination structures (`pagination.go`).
      - `model/`: Base models (`base_model.go`).
+     - `queue/`: Queue parsing helpers and generic payloads (`common.go`).
 0a. **DTO Naming & Layering (MANDATORY)**:
    - Input payloads: `<Name>Request` for JSON bodies, `<Name>Query` for query params (usually carries `SetDefaults()`).
    - Output payloads: `<Name>Data` for structs returned in `response.APIResponse[T].Data`.
@@ -110,6 +114,9 @@ This document defines the architectural invariants, conventions, and workflows f
      - `c.RespondCreated(ctx, "message", data)`
      - `c.RespondEmpty(ctx, "message")`
      - `c.WrapError(ctx, err)`
+0c. **Modular Event Consumer (MANDATORY for Async Modules)**:
+   - If a domain consumes messages from message brokers, implement `<domain>_consumer.go` implementing `workers.Consumer` (`RegisterWorker(sub workers.EventSubscriber)`).
+   - Use `workers.HandleMessage[T]` for consistent deserialization, lifecycle logging, and ACK/NACK routing.
 1. **Error Handling by Layer**:
    - Use `pkg/apperror.AppError` for domain and HTTP errors.
    - Format all HTTP responses using `response.APIResponse` and `response.BaseResponse`.

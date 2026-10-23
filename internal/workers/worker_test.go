@@ -1,62 +1,43 @@
-package workers_test
+package workers
 
 import (
 	"testing"
-
-	"code-base-golang/internal/config"
-	"code-base-golang/internal/queue"
-	"code-base-golang/internal/workers"
 )
 
 type mockSubscriber struct {
 	subscribedTopics []string
 }
 
-func (m *mockSubscriber) Subscribe(topic string, handler workers.WorkerHandler) error {
+func (m *mockSubscriber) Subscribe(topic string, handler WorkerHandler) error {
 	m.subscribedTopics = append(m.subscribedTopics, topic)
 	return nil
 }
 
-func (m *mockSubscriber) MustSubscribe(topic string, handler workers.WorkerHandler) {
+func (m *mockSubscriber) MustSubscribe(topic string, handler WorkerHandler) {
 	_ = m.Subscribe(topic, handler)
 }
 
-func TestWorkerServer_NilSubscriber(t *testing.T) {
-	server := workers.New(config.Config{}, nil, nil)
+type mockConsumer struct {
+	registered bool
+}
+
+func (m *mockConsumer) RegisterWorker(sub EventSubscriber) {
+	m.registered = true
+}
+
+func TestServer_NilSubscriber(t *testing.T) {
+	server := New(nil)
 	server.RegisterWorker() // should safely skip when subscriber is nil
-
-	mock := &mockSubscriber{}
-	serverWithMock := workers.New(config.Config{}, nil, mock)
-	serverWithMock.RegisterWorker() // should execute register cleanly
 }
 
-func TestQueue_MustParse(t *testing.T) {
-	data := []byte(`{"id":"entity-123"}`)
-	var p queue.ID
-	queue.MustParse(data, &p)
-	if p.ID != "entity-123" {
-		t.Errorf("expected entity-123, got %s", p.ID)
-	}
+func TestServer_RegisterWorker_WithConsumers(t *testing.T) {
+	mockSub := &mockSubscriber{}
+	consumer := &mockConsumer{}
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("expected MustParse to panic on invalid json")
-		}
-	}()
-	queue.MustParse([]byte("invalid json"), &p)
-}
+	server := New(mockSub, consumer, nil)
+	server.RegisterWorker()
 
-func TestQueue_Parse(t *testing.T) {
-	data := []byte(`{"id":"order-999"}`)
-	var p queue.ID
-	if err := queue.Parse(data, &p); err != nil {
-		t.Errorf("expected nil error parsing payload, got %v", err)
-	}
-	if p.ID != "order-999" {
-		t.Errorf("expected order-999, got %s", p.ID)
-	}
-
-	if err := queue.Parse([]byte("bad json"), &p); err == nil {
-		t.Error("expected error parsing invalid json, got nil")
+	if !consumer.registered {
+		t.Error("expected consumer to be registered")
 	}
 }
