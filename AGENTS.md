@@ -135,7 +135,7 @@ This document defines the architectural invariants, conventions, and workflows f
 6. **Usecase**: Define business logic in `<domain>_usecase.go`.
 7. **Controller**: Define handler struct embedding `controller.Base` in `<domain>_controller.go`.
 8. **Module Provider**: Define `Register(appCtx *app.Context) *Controller` in `<domain>_module.go`.
-9. **Module Registry**: Register the new module in `internal/modules/modules.go` and include in `Handlers() []any`.
+9. **Module Registry**: Register the new module in `internal/modules/modules.go` and include in `Handlers() []controller.Controller`.
 10. **Routes**: Register path, HTTP method, and middleware in `internal/routes/routes.yaml`.
 11. **Unit Tests**: Add tests alongside code (`<domain>_controller_test.go`, `<domain>_usecase_test.go`).
 

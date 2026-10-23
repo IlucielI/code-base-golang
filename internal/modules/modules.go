@@ -5,6 +5,7 @@ import (
 	"code-base-golang/internal/modules/health"
 	"code-base-golang/internal/modules/metrics"
 	"code-base-golang/internal/pkg/app"
+	"code-base-golang/internal/pkg/controller"
 )
 
 // Modules is the central application registry aggregating active domain modules.
@@ -24,8 +25,8 @@ func New(appCtx *app.Context) *Modules {
 }
 
 // Handlers returns a list of all active module controllers for dynamic route dispatching.
-func (m *Modules) Handlers() []any {
-	return []any{
+func (m *Modules) Handlers() []controller.Controller {
+	return []controller.Controller{
 		m.Health,
 		m.Docs,
 		m.Metrics,
