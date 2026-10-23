@@ -42,13 +42,3 @@ func TestNewPostgres_Unreachable(t *testing.T) {
 		t.Fatal("expected nil Postgres instance on connection failure")
 	}
 }
-
-func TestPostgres_NilReceiver(t *testing.T) {
-	var pg *Postgres
-	if pg.DB() != nil {
-		t.Fatal("expected nil DB for nil Postgres")
-	}
-	if pg.SQLDB() != nil {
-		t.Fatal("expected nil SQLDB for nil Postgres")
-	}
-}

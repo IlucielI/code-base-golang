@@ -162,48 +162,30 @@ func findMigrationsDir() string {
 
 // DB returns the GORM database instance for repository operations.
 func (p *Postgres) DB() *gorm.DB {
-	if p == nil {
-		return nil
-	}
 	return p.db
 }
 
 // SQLDB returns the underlying sql.DB instance.
 func (p *Postgres) SQLDB() *sql.DB {
-	if p == nil {
-		return nil
-	}
 	return p.sqlDB
 }
 
 // WithContext returns a new GORM DB instance scoped to the provided context.
 func (p *Postgres) WithContext(ctx context.Context) *gorm.DB {
-	if p == nil || p.db == nil {
-		return nil
-	}
 	return p.db.WithContext(ctx)
 }
 
 // Transaction executes operations within a database transaction.
 func (p *Postgres) Transaction(fc func(tx *gorm.DB) error) error {
-	if p == nil || p.db == nil {
-		return errors.New("postgres connection is nil")
-	}
 	return p.db.Transaction(fc)
 }
 
 // Ping checks if the database is reachable.
 func (p *Postgres) Ping(ctx context.Context) error {
-	if p == nil || p.sqlDB == nil {
-		return errors.New("database connection is nil")
-	}
 	return p.sqlDB.PingContext(ctx)
 }
 
 // Close gracefully closes the database connections.
 func (p *Postgres) Close() error {
-	if p == nil || p.sqlDB == nil {
-		return nil
-	}
 	return p.sqlDB.Close()
 }

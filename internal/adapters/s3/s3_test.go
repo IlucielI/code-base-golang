@@ -1,8 +1,6 @@
 package s3_test
 
 import (
-	"context"
-	"strings"
 	"testing"
 
 	"code-base-golang/internal/adapters/s3"
@@ -55,46 +53,5 @@ func TestS3_New_UnreachableEndpoint(t *testing.T) {
 	}
 	if client != nil {
 		t.Fatal("expected client to be nil on failed connection")
-	}
-}
-
-func TestS3_NilReceiver(t *testing.T) {
-	var s *s3.S3
-	ctx := context.Background()
-
-	if s.Client() != nil {
-		t.Error("expected nil *minio.Client from nil S3")
-	}
-
-	if s.BucketName() != "" {
-		t.Error("expected empty bucket name from nil S3")
-	}
-
-	if err := s.Ping(ctx); err == nil {
-		t.Error("expected error calling Ping on nil S3, got nil")
-	}
-
-	if err := s.EnsureBucketExists(ctx, "bucket"); err == nil {
-		t.Error("expected error calling EnsureBucketExists on nil S3, got nil")
-	}
-
-	if err := s.Upload(ctx, "bucket", "obj", strings.NewReader("data"), 4, "text/plain"); err == nil {
-		t.Error("expected error calling Upload on nil S3, got nil")
-	}
-
-	if _, err := s.Download(ctx, "bucket", "obj"); err == nil {
-		t.Error("expected error calling Download on nil S3, got nil")
-	}
-
-	if err := s.Delete(ctx, "bucket", "obj"); err == nil {
-		t.Error("expected error calling Delete on nil S3, got nil")
-	}
-
-	if _, err := s.PresignGetObject(ctx, "bucket", "obj", 0); err == nil {
-		t.Error("expected error calling PresignGetObject on nil S3, got nil")
-	}
-
-	if _, err := s.PresignPutObject(ctx, "bucket", "obj", 0); err == nil {
-		t.Error("expected error calling PresignPutObject on nil S3, got nil")
 	}
 }

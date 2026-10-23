@@ -81,18 +81,11 @@ func (s *S3) Client() *minio.Client {
 
 // BucketName returns the default configured bucket name.
 func (s *S3) BucketName() string {
-	if s == nil {
-		return ""
-	}
 	return s.bucketName
 }
 
 // Ping checks if the S3 / MinIO storage service is reachable.
 func (s *S3) Ping(ctx context.Context) error {
-	if s == nil || s.client == nil {
-		return errors.New("s3 client is nil")
-	}
-
 	// Probe storage liveness by checking bucket existence or listing
 	bucket := s.bucketName
 	if bucket == "" {
@@ -104,10 +97,6 @@ func (s *S3) Ping(ctx context.Context) error {
 
 // EnsureBucketExists creates the specified bucket if it does not already exist.
 func (s *S3) EnsureBucketExists(ctx context.Context, bucketName string) error {
-	if s == nil || s.client == nil {
-		return errors.New("s3 client is nil")
-	}
-
 	targetBucket := s.resolveBucket(bucketName)
 	if targetBucket == "" {
 		return errors.New("bucket name is required")
@@ -130,10 +119,6 @@ func (s *S3) EnsureBucketExists(ctx context.Context, bucketName string) error {
 
 // Upload streams an object to the specified bucket.
 func (s *S3) Upload(ctx context.Context, bucketName, objectName string, reader io.Reader, size int64, contentType string) error {
-	if s == nil || s.client == nil {
-		return errors.New("s3 client is nil")
-	}
-
 	targetBucket := s.resolveBucket(bucketName)
 	if targetBucket == "" {
 		return errors.New("bucket name is required")
@@ -150,10 +135,6 @@ func (s *S3) Upload(ctx context.Context, bucketName, objectName string, reader i
 
 // Download retrieves an object stream from the bucket.
 func (s *S3) Download(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
-	if s == nil || s.client == nil {
-		return nil, errors.New("s3 client is nil")
-	}
-
 	targetBucket := s.resolveBucket(bucketName)
 	if targetBucket == "" {
 		return nil, errors.New("bucket name is required")
@@ -167,10 +148,6 @@ func (s *S3) Download(ctx context.Context, bucketName, objectName string) (io.Re
 
 // Delete removes an object from the bucket.
 func (s *S3) Delete(ctx context.Context, bucketName, objectName string) error {
-	if s == nil || s.client == nil {
-		return errors.New("s3 client is nil")
-	}
-
 	targetBucket := s.resolveBucket(bucketName)
 	if targetBucket == "" {
 		return errors.New("bucket name is required")
@@ -184,10 +161,6 @@ func (s *S3) Delete(ctx context.Context, bucketName, objectName string) error {
 
 // PresignGetObject generates a presigned GET URL for downloading an object.
 func (s *S3) PresignGetObject(ctx context.Context, bucketName, objectName string, expiry time.Duration) (string, error) {
-	if s == nil || s.client == nil {
-		return "", errors.New("s3 client is nil")
-	}
-
 	targetBucket := s.resolveBucket(bucketName)
 	if targetBucket == "" {
 		return "", errors.New("bucket name is required")
@@ -210,10 +183,6 @@ func (s *S3) PresignGetObject(ctx context.Context, bucketName, objectName string
 
 // PresignPutObject generates a presigned PUT URL for uploading an object.
 func (s *S3) PresignPutObject(ctx context.Context, bucketName, objectName string, expiry time.Duration) (string, error) {
-	if s == nil || s.client == nil {
-		return "", errors.New("s3 client is nil")
-	}
-
 	targetBucket := s.resolveBucket(bucketName)
 	if targetBucket == "" {
 		return "", errors.New("bucket name is required")

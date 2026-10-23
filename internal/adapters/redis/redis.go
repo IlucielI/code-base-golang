@@ -60,49 +60,31 @@ func NewWithClient(client *redis.Client) *Redis {
 
 // Client returns the underlying *redis.Client for custom/advanced operations.
 func (r *Redis) Client() *redis.Client {
-	if r == nil {
-		return nil
-	}
 	return r.client
 }
 
 // Ping checks if Redis server is reachable.
 func (r *Redis) Ping(ctx context.Context) error {
-	if r == nil || r.client == nil {
-		return fmt.Errorf("redis client is nil")
-	}
 	return r.client.Ping(ctx).Err()
 }
 
 // Get retrieves the value of a string key.
 func (r *Redis) Get(ctx context.Context, key string) (string, error) {
-	if r == nil || r.client == nil {
-		return "", fmt.Errorf("redis client is nil")
-	}
 	return r.client.Get(ctx, key).Result()
 }
 
 // Set stores a key-value pair with an expiration duration (0 for no expiration).
 func (r *Redis) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
-	if r == nil || r.client == nil {
-		return fmt.Errorf("redis client is nil")
-	}
 	return r.client.Set(ctx, key, value, expiration).Err()
 }
 
 // SetNX sets a key only if it does not already exist, returning true if the key was set.
 func (r *Redis) SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error) {
-	if r == nil || r.client == nil {
-		return false, fmt.Errorf("redis client is nil")
-	}
 	return r.client.SetNX(ctx, key, value, expiration).Result()
 }
 
 // Delete removes one or more keys.
 func (r *Redis) Delete(ctx context.Context, keys ...string) error {
-	if r == nil || r.client == nil {
-		return fmt.Errorf("redis client is nil")
-	}
 	if len(keys) == 0 {
 		return nil
 	}
@@ -129,8 +111,5 @@ func (r *Redis) SetJSON(ctx context.Context, key string, value any, expiration t
 
 // Close gracefully closes the Redis client connection pool.
 func (r *Redis) Close() error {
-	if r == nil || r.client == nil {
-		return nil
-	}
 	return r.client.Close()
 }
