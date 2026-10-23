@@ -1,4 +1,4 @@
-package services
+package usecases
 
 import (
 	"context"
@@ -16,9 +16,9 @@ import (
 	"code-base-golang/internal/repositories"
 )
 
-func TestService_CheckHealth_EmptyDependencies(t *testing.T) {
-	s := New(config.Config{}, nil, nil)
-	status := s.CheckHealth(context.Background())
+func TestUsecases_CheckHealth_EmptyDependencies(t *testing.T) {
+	u := New(config.Config{}, nil, nil)
+	status := u.CheckHealth(context.Background())
 	if status.Database != constants.IntegrationStatusDisconnected {
 		t.Errorf("expected db disconnected, got %s", status.Database)
 	}
@@ -36,7 +36,7 @@ func TestService_CheckHealth_EmptyDependencies(t *testing.T) {
 	}
 }
 
-func TestService_CheckHealth_Connected(t *testing.T) {
+func TestUsecases_CheckHealth_Connected(t *testing.T) {
 	sqlDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
 	if err != nil {
 		t.Fatalf("failed to open sqlmock: %v", err)
@@ -56,12 +56,12 @@ func TestService_CheckHealth_Connected(t *testing.T) {
 	rdb := redis.NewWithClient(rClient)
 	repo := repositories.New(gormDB, rdb)
 
-	s := New(config.Config{}, repo, nil)
+	u := New(config.Config{}, repo, nil)
 
 	mock.ExpectPing()
 	rMock.ExpectPing().SetVal("PONG")
 
-	status := s.CheckHealth(context.Background())
+	status := u.CheckHealth(context.Background())
 	if status.Database != constants.IntegrationStatusConnected {
 		t.Errorf("expected db connected, got %s", status.Database)
 	}
@@ -79,7 +79,7 @@ func TestService_CheckHealth_Connected(t *testing.T) {
 	}
 }
 
-func TestService_CheckHealth_PingErrors(t *testing.T) {
+func TestUsecases_CheckHealth_PingErrors(t *testing.T) {
 	sqlDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
 	if err != nil {
 		t.Fatalf("failed to open sqlmock: %v", err)
@@ -99,12 +99,12 @@ func TestService_CheckHealth_PingErrors(t *testing.T) {
 	rdb := redis.NewWithClient(rClient)
 	repo := repositories.New(gormDB, rdb)
 
-	s := New(config.Config{}, repo, nil)
+	u := New(config.Config{}, repo, nil)
 
 	mock.ExpectPing().WillReturnError(errors.New("db ping failed"))
 	rMock.ExpectPing().SetErr(errors.New("redis ping failed"))
 
-	status := s.CheckHealth(context.Background())
+	status := u.CheckHealth(context.Background())
 	if status.Database != constants.IntegrationStatusDisconnected {
 		t.Errorf("expected db disconnected on ping error, got %s", status.Database)
 	}

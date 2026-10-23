@@ -1,4 +1,4 @@
-package services
+package usecases
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// FileStorage defines the abstract storage interface consumed by application services.
+// FileStorage defines the abstract storage interface consumed by application use cases.
 // Any storage provider (AWS S3, MinIO, Google Cloud Storage, Local Filesystem)
 // that implements these methods can be seamlessly injected.
 type FileStorage interface {

@@ -21,7 +21,7 @@ import (
 	"code-base-golang/internal/pkg/tracing"
 	"code-base-golang/internal/repositories"
 	"code-base-golang/internal/routes"
-	"code-base-golang/internal/services"
+	"code-base-golang/internal/usecases"
 	"code-base-golang/internal/workers"
 )
 
@@ -107,7 +107,7 @@ func main() {
 	}
 
 	// Initialize s3 storage adapter
-	var storage services.FileStorage
+	var storage usecases.FileStorage
 	s3Adapter, err := s3.New(cfg)
 	if err != nil {
 		if cfg.AppEnv == "production" {
@@ -141,12 +141,12 @@ func main() {
 	smtpAdapter := smtp.New(cfg)
 
 	repo := repositories.New(db.DB(), rdb)
-	var publisher services.EventPublisher
+	var publisher usecases.EventPublisher
 	if broker != nil {
 		publisher = broker
 	}
-	svc := services.New(cfg, repo, storage, publisher).WithMailer(smtpAdapter)
-	ctrls := controllers.New(cfg, svc)
+	uc := usecases.New(cfg, repo, storage, publisher).WithMailer(smtpAdapter)
+	ctrls := controllers.New(cfg, uc)
 	router := routes.NewRouter(cfg, ctrls, rdb)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -154,7 +154,7 @@ func main() {
 
 	// Register worker subscription to Message Queue
 	if broker != nil {
-		workerServer := workers.New(cfg, svc, broker)
+		workerServer := workers.New(cfg, uc, broker)
 		workerServer.RegisterWorker()
 	}
 

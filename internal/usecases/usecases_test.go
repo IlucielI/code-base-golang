@@ -1,4 +1,4 @@
-package services
+package usecases
 
 import (
 	"context"
@@ -41,26 +41,26 @@ func (m *mockStorage) PresignPutObject(ctx context.Context, bucketName, objectNa
 	return "https://mock.storage/put", nil
 }
 
-func TestService_FileStorage_Mock(t *testing.T) {
+func TestUsecases_FileStorage_Mock(t *testing.T) {
 	mock := &mockStorage{}
-	svc := New(config.Config{}, nil, mock)
+	uc := New(config.Config{}, nil, mock)
 
-	if svc.Storage() == nil {
+	if uc.Storage() == nil {
 		t.Fatal("expected storage to be non-nil")
 	}
 
 	// Test SetStorage override
 	mock2 := &mockStorage{pingErr: errors.New("storage unreachable")}
-	svc.SetStorage(mock2)
+	uc.SetStorage(mock2)
 
-	health := svc.CheckHealth(context.Background())
+	health := uc.CheckHealth(context.Background())
 	if health.S3 != constants.IntegrationStatusDisconnected {
 		t.Errorf("expected storage disconnected on error, got %s", health.S3)
 	}
 
 	// Test healthy storage
-	svc.SetStorage(&mockStorage{pingErr: nil})
-	health = svc.CheckHealth(context.Background())
+	uc.SetStorage(&mockStorage{pingErr: nil})
+	health = uc.CheckHealth(context.Background())
 	if health.S3 != constants.IntegrationStatusConnected {
 		t.Errorf("expected storage connected, got %s", health.S3)
 	}
@@ -91,16 +91,16 @@ func (m *mockPublisher) MustPublish(ctx context.Context, topic string, payload a
 	}
 }
 
-func TestService_EventPublisher_Mock(t *testing.T) {
+func TestUsecases_EventPublisher_Mock(t *testing.T) {
 	pub := &mockPublisher{}
-	svc := New(config.Config{}, nil, nil, pub)
+	uc := New(config.Config{}, nil, nil, pub)
 
-	if svc.Publisher() == nil {
+	if uc.Publisher() == nil {
 		t.Fatal("expected publisher to be non-nil")
 	}
 
 	// Test publishing
-	err := svc.Publisher().Publish(context.Background(), "user.registered", map[string]string{"id": "123"})
+	err := uc.Publisher().Publish(context.Background(), "user.registered", map[string]string{"id": "123"})
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -109,8 +109,8 @@ func TestService_EventPublisher_Mock(t *testing.T) {
 	}
 
 	// Test health check with broker error
-	svc.SetPublisher(&mockPublisher{pingErr: errors.New("broker down")})
-	health := svc.CheckHealth(context.Background())
+	uc.SetPublisher(&mockPublisher{pingErr: errors.New("broker down")})
+	health := uc.CheckHealth(context.Background())
 	if health.RabbitMQ != constants.IntegrationStatusDisconnected {
 		t.Errorf("expected rabbitmq disconnected on ping error, got %s", health.RabbitMQ)
 	}
@@ -135,16 +135,16 @@ func (m *mockMailer) Send(ctx context.Context, msg EmailMessage) error {
 	return nil
 }
 
-func TestService_EmailSender_Mock(t *testing.T) {
+func TestUsecases_EmailSender_Mock(t *testing.T) {
 	mailer := &mockMailer{}
-	svc := New(config.Config{}, nil, nil).WithMailer(mailer)
+	uc := New(config.Config{}, nil, nil).WithMailer(mailer)
 
-	if svc.Mailer() == nil {
+	if uc.Mailer() == nil {
 		t.Fatal("expected mailer to be non-nil")
 	}
 
 	// Test sending
-	err := svc.Mailer().Send(context.Background(), EmailMessage{
+	err := uc.Mailer().Send(context.Background(), EmailMessage{
 		To:      []string{"test@example.com"},
 		Subject: "Test Subject",
 	})
@@ -156,14 +156,14 @@ func TestService_EmailSender_Mock(t *testing.T) {
 	}
 
 	// Test health check
-	health := svc.CheckHealth(context.Background())
+	health := uc.CheckHealth(context.Background())
 	if health.SMTP != constants.IntegrationStatusConnected {
 		t.Errorf("expected smtp connected, got %s", health.SMTP)
 	}
 
 	// Test health check with SMTP error
-	svc.SetMailer(&mockMailer{pingErr: errors.New("smtp down")})
-	health = svc.CheckHealth(context.Background())
+	uc.SetMailer(&mockMailer{pingErr: errors.New("smtp down")})
+	health = uc.CheckHealth(context.Background())
 	if health.SMTP != constants.IntegrationStatusDisconnected {
 		t.Errorf("expected smtp disconnected on error, got %s", health.SMTP)
 	}

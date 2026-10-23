@@ -42,7 +42,7 @@ The boilerplate adheres strictly to **Clean Architecture** and idiomatic Go desi
                               │
                               ▼
             ┌───────────────────────────────────┐
-            │          Service Layer            │
+            │          Usecase Layer            │
             │      (Pure Business Logic)        │
             │   Depends only on Port Interfaces │
             └─────────┬─────────────────┬───────┘
@@ -57,8 +57,8 @@ The boilerplate adheres strictly to **Clean Architecture** and idiomatic Go desi
 ```
 
 1. **Separation of Concerns**: HTTP delivery, domain orchestration, and infrastructure adapters are strictly isolated.
-2. **Decoupled Ports & Adapters**: Core services interact solely through Go-idiomatic consumer interfaces (`FileStorage`, `EventPublisher`, `EventSubscriber`, `EmailSender`). Concrete implementations (S3, RabbitMQ, SMTP) can be swapped or mocked with zero business logic changes.
-3. **Dependency Injection**: Controllers, services, and repositories receive dependencies via constructors without relying on global state.
+2. **Decoupled Ports & Adapters**: Core use cases interact solely through Go-idiomatic consumer interfaces (`FileStorage`, `EventPublisher`, `EventSubscriber`, `EmailSender`). Concrete implementations (S3, RabbitMQ, SMTP) can be swapped or mocked with zero business logic changes.
+3. **Dependency Injection**: Controllers, usecases, and repositories receive dependencies via constructors without relying on global state.
 4. **Configuration as Code**: Strongly-typed configuration parsed cleanly from environment variables with sensible defaults.
 5. **Declarative Routing**: Routes are declared in `internal/routes/routes.yaml` and resolved cleanly at startup.
 
@@ -90,7 +90,7 @@ The boilerplate adheres strictly to **Clean Architecture** and idiomatic Go desi
     ├── queue/              # Queue message payloads (Id, MustParse, domain payloads)
     ├── repositories/       # Data access layer interfacing with GORM & Redis
     ├── routes/             # YAML-based route registration (routes.yaml) and engine setup
-    ├── services/           # Core business logic orchestration (decoupled ports)
+    ├── usecases/           # Core business logic orchestration (decoupled ports)
     ├── validations/        # Struct input validations using Ozzo-Validation (*_validation.go)
     └── workers/            # Background queue subscribers and worker pool orchestration
 ```
@@ -329,7 +329,7 @@ When `AUTO_MIGRATE=true` is set in `.env`:
 | **CORS Middleware** | Preflight `OPTIONS` (204 No Content), configurable origins, methods, headers, and credentials. |
 | **Rate Limiter** | In-memory token bucket rate limiting per client IP with background garbage collection. |
 | **Client Metadata** | Extracts client IP and User-Agent into standard `context.Context` (`ctxmeta`). |
-| **Decoupled Ports** | Abstract consumer interfaces in `services` (`FileStorage`, `EventPublisher`, `EmailSender`) and `workers` (`EventSubscriber`). |
+| **Decoupled Ports** | Abstract consumer interfaces in `usecases` (`FileStorage`, `EventPublisher`, `EmailSender`) and `workers` (`EventSubscriber`). |
 
 ---
 
