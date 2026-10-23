@@ -1,17 +1,16 @@
-package modules_test
+package modules
 
 import (
 	"testing"
 
 	"code-base-golang/internal/adapters"
 	"code-base-golang/internal/config"
-	"code-base-golang/internal/modules"
 )
 
 func TestModules_New(t *testing.T) {
 	cfg := config.Config{AppName: "test-app", Version: "1.0.0"}
 	adp := adapters.New(cfg, nil, nil, nil, nil, nil)
-	mods := modules.New(adp)
+	mods := New(adp)
 
 	if mods == nil {
 		t.Fatal("expected non-nil modules")

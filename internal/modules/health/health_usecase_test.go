@@ -1,4 +1,4 @@
-package health_test
+package health
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/modules/health"
 )
 
 type mockPinger struct {
@@ -18,7 +17,7 @@ func (m *mockPinger) Ping(ctx context.Context) error {
 }
 
 func TestUsecase_CheckHealth_EmptyDependencies(t *testing.T) {
-	u := health.NewUsecase(nil)
+	u := NewUsecase(nil)
 	status := u.CheckHealth(context.Background())
 	if status.Database != constants.IntegrationStatusDisconnected {
 		t.Errorf("expected db disconnected, got %s", status.Database)
@@ -38,7 +37,7 @@ func TestUsecase_CheckHealth_EmptyDependencies(t *testing.T) {
 }
 
 func TestUsecase_CheckHealth_Connected(t *testing.T) {
-	pingers := map[string]health.Pinger{
+	pingers := map[string]Pinger{
 		"database": &mockPinger{err: nil},
 		"redis":    &mockPinger{err: nil},
 		"s3":       &mockPinger{err: nil},
@@ -46,7 +45,7 @@ func TestUsecase_CheckHealth_Connected(t *testing.T) {
 		"smtp":     &mockPinger{err: nil},
 	}
 
-	u := health.NewUsecase(pingers)
+	u := NewUsecase(pingers)
 	status := u.CheckHealth(context.Background())
 
 	if status.Database != constants.IntegrationStatusConnected {
@@ -67,7 +66,7 @@ func TestUsecase_CheckHealth_Connected(t *testing.T) {
 }
 
 func TestUsecase_CheckHealth_PingErrors(t *testing.T) {
-	pingers := map[string]health.Pinger{
+	pingers := map[string]Pinger{
 		"database": &mockPinger{err: errors.New("db ping failed")},
 		"redis":    &mockPinger{err: errors.New("redis ping failed")},
 		"s3":       &mockPinger{err: errors.New("s3 ping failed")},
@@ -75,7 +74,7 @@ func TestUsecase_CheckHealth_PingErrors(t *testing.T) {
 		"smtp":     &mockPinger{err: errors.New("smtp ping failed")},
 	}
 
-	u := health.NewUsecase(pingers)
+	u := NewUsecase(pingers)
 	status := u.CheckHealth(context.Background())
 
 	if status.Database != constants.IntegrationStatusDisconnected {

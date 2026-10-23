@@ -1,4 +1,4 @@
-package metrics_test
+package metrics
 
 import (
 	"net/http"
@@ -9,14 +9,13 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"code-base-golang/internal/config"
-	"code-base-golang/internal/modules/metrics"
 	"code-base-golang/internal/pkg/controller"
 )
 
 func TestController_PrometheusMetrics(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	base := controller.NewBase(config.Config{})
-	ctrl := metrics.NewController(base)
+	ctrl := NewController(base)
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)

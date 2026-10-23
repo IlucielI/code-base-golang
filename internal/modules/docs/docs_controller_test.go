@@ -1,4 +1,4 @@
-package docs_test
+package docs
 
 import (
 	"net/http"
@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"code-base-golang/internal/config"
-	"code-base-golang/internal/modules/docs"
 	"code-base-golang/internal/pkg/controller"
 )
 
@@ -19,7 +18,7 @@ func init() {
 
 func TestDocsController_OpenAPISpec(t *testing.T) {
 	base := controller.NewBase(config.Config{})
-	ctrl := docs.NewController(base)
+	ctrl := NewController(base)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -53,7 +52,7 @@ func TestDocsController_OpenAPISpec(t *testing.T) {
 
 func TestDocsController_APIDocs(t *testing.T) {
 	base := controller.NewBase(config.Config{})
-	ctrl := docs.NewController(base)
+	ctrl := NewController(base)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
