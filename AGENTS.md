@@ -115,6 +115,19 @@ This document defines the architectural invariants, conventions, and workflows f
          Search: query.Search,
      }
      ```
+0c. **External DTOs & Anti-Corruption Layer (MANDATORY)**:
+   - When integrating with external microservices, third-party APIs, or external HTTP/gRPC services (e.g. payment gateways, notification providers, remote microservices):
+     - **Location**: External request and response payload structs live **strictly inside their respective adapter package** (e.g. `internal/adapters/<provider>/dto.go`), **NEVER** in `internal/dtos/` (which is reserved exclusively for inbound HTTP client transport).
+     - **Anti-Corruption Layer (ACL)**: Adapters isolate external schemas from contaminating our domain model:
+       - Port interfaces in `internal/usecases/` speak exclusively in domain terms (accepting domain entities, models, or primitives).
+       - The concrete adapter in `internal/adapters/<provider>/` translates domain parameters into external request DTOs, performs the network call, and translates the external response DTO back into domain entities/models/primitives before returning to the usecase.
+       - Usecases and domain models **MUST NEVER** import or reference external DTOs.
+       - If an external microservice or third-party API changes its JSON schema, only the adapter's local DTO and mapper change; core business logic remains completely untouched.
+0d. **Domain Entities vs. Persistence Models (Pragmatic Approach)**:
+   - Structs in `internal/models/*_model.go` serve a dual role as both the **Domain Entity** (carrying identity via `BaseModel`, business attributes, and state methods) and the **Persistence Model** (carrying `gorm:"..."` tags for SQL mapping).
+   - Do not create separate duplicate `entities/` and `models/` packages. Combining them is idiomatic in Go and avoids redundant struct-copying boilerplate.
+   - Entities are the internal domain currency: passed freely between usecases and repositories (`usecases` $\leftrightarrow$ `repositories`, `usecases` $\leftrightarrow$ `usecases`).
+   - Entities **MUST NEVER** leak to HTTP clients directly; usecases must map them into `*Data` DTOs before returning to controllers.
 1. **Standard Error Envelope & Error Handling by Layer**:
    - Use `pkg/apperror.AppError` for domain and HTTP errors.
    - Format all HTTP responses using the standardized envelope in `internal/dtos/response_dto.go` (`status`, `code`, `message`, `data`, `errors`, `timestamp`).
