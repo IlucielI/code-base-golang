@@ -22,7 +22,7 @@ func TestControllers_wrapError(t *testing.T) {
 	t.Run("nil error does nothing", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
-		ctrls.wrapError(ctx, nil)
+		ctrls.WrapError(ctx, nil)
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected default 200 on nil error, got %d", w.Code)
 		}
@@ -32,7 +32,7 @@ func TestControllers_wrapError(t *testing.T) {
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
 		appErr := apperror.New(http.StatusConflict, "CONFLICT", "resource conflict")
-		ctrls.wrapError(ctx, appErr)
+		ctrls.WrapError(ctx, appErr)
 
 		if w.Code != http.StatusConflict {
 			t.Fatalf("expected 409, got %d", w.Code)
@@ -63,7 +63,7 @@ func TestControllers_wrapError(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				w := httptest.NewRecorder()
 				ctx, _ := gin.CreateTestContext(w)
-				ctrls.wrapError(ctx, tc.err)
+				ctrls.WrapError(ctx, tc.err)
 
 				if w.Code != tc.wantStatus {
 					t.Fatalf("expected status %d, got %d", tc.wantStatus, w.Code)
@@ -82,7 +82,7 @@ func TestControllers_wrapError(t *testing.T) {
 	t.Run("wrapped constant error preserves code and uses custom error message", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
-		ctrls.wrapError(ctx, constants.ErrBadRequest.Wrap(errors.New("custom validation failure")))
+		ctrls.WrapError(ctx, constants.ErrBadRequest.Wrap(errors.New("custom validation failure")))
 
 		if w.Code != http.StatusBadRequest {
 			t.Fatalf("expected status 400, got %d", w.Code)
@@ -99,7 +99,7 @@ func TestControllers_wrapError(t *testing.T) {
 	t.Run("raw unclassified error falls back to ErrInternalServerError", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
-		ctrls.wrapError(ctx, errors.New("unhandled database failure"))
+		ctrls.WrapError(ctx, errors.New("unhandled database failure"))
 
 		if w.Code != http.StatusInternalServerError {
 			t.Fatalf("expected status 500, got %d", w.Code)
@@ -122,7 +122,7 @@ func TestControllers_respondCreatedAndEmpty(t *testing.T) {
 	t.Run("respondCreated sends 201 Created", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
-		ctrls.respondCreated(ctx, "created successfully", map[string]string{"id": "123"})
+		ctrls.RespondCreated(ctx, "created successfully", map[string]string{"id": "123"})
 		if w.Code != http.StatusCreated {
 			t.Fatalf("expected 201, got %d", w.Code)
 		}
@@ -131,7 +131,7 @@ func TestControllers_respondCreatedAndEmpty(t *testing.T) {
 	t.Run("respondEmpty sends 200 OK without data", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		ctx, _ := gin.CreateTestContext(w)
-		ctrls.respondEmpty(ctx, "operation completed")
+		ctrls.RespondEmpty(ctx, "operation completed")
 		if w.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d", w.Code)
 		}

@@ -1,0 +1,46 @@
+package health_test
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+
+	"code-base-golang/internal/config"
+	"code-base-golang/internal/constants"
+	"code-base-golang/internal/dtos"
+	"code-base-golang/internal/modules/health"
+	"code-base-golang/internal/pkg/controller"
+)
+
+func TestController_HealthCheck(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := config.Config{Version: "1.0.0", GitHash: "abcdef"}
+	base := controller.NewBase(cfg)
+	uc := health.NewUsecase(nil, nil, nil, nil)
+	ctrl := health.NewController(base, uc)
+
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request, _ = http.NewRequest(http.MethodGet, "/v1/health", nil)
+
+	ctrl.HealthCheck(ctx)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	var resp dtos.APIResponse[dtos.HealthData]
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if resp.Status != constants.ResponseStatusSuccess {
+		t.Errorf("expected success status, got %s", resp.Status)
+	}
+	if resp.Data.Version != "1.0.0" {
+		t.Errorf("expected version 1.0.0, got %s", resp.Data.Version)
+	}
+}

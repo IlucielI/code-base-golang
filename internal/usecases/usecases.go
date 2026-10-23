@@ -5,6 +5,7 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
+	"code-base-golang/internal/modules/health"
 	"code-base-golang/internal/repositories"
 )
 
@@ -15,6 +16,8 @@ type Usecases struct {
 	repo      *repositories.Repositories
 	publisher EventPublisher
 	mailer    EmailSender
+
+	Health *health.Usecase
 }
 
 // New creates a new unified use cases container.
@@ -28,12 +31,14 @@ func New(cfg config.Config, repo *repositories.Repositories, storage FileStorage
 		storage:   storage,
 		repo:      repo,
 		publisher: pub,
+		Health:    health.NewUsecase(repo, storage, pub, nil),
 	}
 }
 
 // SetStorage allows injecting or overriding storage adapter (e.g. for testing or switching provider).
 func (u *Usecases) SetStorage(storage FileStorage) {
 	u.storage = storage
+	u.Health = health.NewUsecase(u.repo, u.storage, u.publisher, u.mailer)
 }
 
 // Storage returns the underlying file storage provider.
@@ -44,6 +49,7 @@ func (u *Usecases) Storage() FileStorage {
 // SetRepositories allows injecting or overriding repositories (e.g. for testing).
 func (u *Usecases) SetRepositories(repo *repositories.Repositories) {
 	u.repo = repo
+	u.Health = health.NewUsecase(u.repo, u.storage, u.publisher, u.mailer)
 }
 
 // Repositories returns the underlying repositories container.
@@ -54,6 +60,7 @@ func (u *Usecases) Repositories() *repositories.Repositories {
 // SetPublisher allows injecting or overriding event publisher adapter (e.g. for testing or switching broker).
 func (u *Usecases) SetPublisher(pub EventPublisher) {
 	u.publisher = pub
+	u.Health = health.NewUsecase(u.repo, u.storage, u.publisher, u.mailer)
 }
 
 // Publisher returns the underlying event publisher adapter.
@@ -64,11 +71,13 @@ func (u *Usecases) Publisher() EventPublisher {
 // SetMailer allows injecting or overriding email sender adapter (e.g. for testing or switching mail provider).
 func (u *Usecases) SetMailer(mailer EmailSender) {
 	u.mailer = mailer
+	u.Health = health.NewUsecase(u.repo, u.storage, u.publisher, u.mailer)
 }
 
 // WithMailer fluently sets the email sender adapter.
 func (u *Usecases) WithMailer(mailer EmailSender) *Usecases {
 	u.mailer = mailer
+	u.Health = health.NewUsecase(u.repo, u.storage, u.publisher, u.mailer)
 	return u
 }
 
