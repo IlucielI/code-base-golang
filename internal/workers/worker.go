@@ -2,9 +2,8 @@ package workers
 
 import (
 	"context"
+	"encoding/json"
 	"log"
-
-	"code-base-golang/internal/pkg/queue"
 )
 
 // Server orchestrates registration of domain consumers to message broker events.
@@ -52,7 +51,7 @@ func (s *Server) RegisterWorker() {
 //	}
 func HandleMessage[T any](ctx context.Context, name string, msg []byte, process func(context.Context, T) error) bool {
 	var payload T
-	if err := queue.Parse(msg, &payload); err != nil {
+	if err := json.Unmarshal(msg, &payload); err != nil {
 		log.Printf("[WORKER ERROR] %s: failed to parse payload: %v", name, err)
 		return false
 	}

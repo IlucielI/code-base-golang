@@ -39,7 +39,6 @@ This document defines the architectural invariants, conventions, and workflows f
   - `internal/pkg/response/`: Standard envelope types (`APIResponse[T]`, `BaseResponse`).
   - `internal/pkg/pagination/`: Reusable pagination queries, metadata, and database filters (`Query`, `Meta`, `Filter`, `Sort`).
   - `internal/pkg/model/`: Shared GORM entity base (`BaseModel`, `JSONMap`).
-  - `internal/pkg/queue/`: Shared message deserialization helpers (`Parse`, `MustParse`) and common payloads.
   - `internal/pkg/apperror/`: Application error definitions and stack tracing.
 
 ### 2.2. Declarative Route Configuration & Dynamic Dispatch
@@ -95,7 +94,6 @@ This document defines the architectural invariants, conventions, and workflows f
      - `response/`: Response envelopes (`response.go`).
      - `pagination/`: Pagination structures (`pagination.go`).
      - `model/`: Base models (`base_model.go`).
-     - `queue/`: Queue parsing helpers and generic payloads (`common.go`).
 0a. **DTO Naming & Layering (MANDATORY)**:
    - Input payloads: `<Name>Request` for JSON bodies, `<Name>Query` for query params (usually carries `SetDefaults()`).
    - Output payloads: `<Name>Data` for structs returned in `response.APIResponse[T].Data`.
