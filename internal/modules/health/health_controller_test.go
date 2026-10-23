@@ -18,7 +18,7 @@ func TestController_HealthCheck(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := config.Config{Version: "1.0.0", GitHash: "abcdef"}
 	base := controller.NewBase(cfg)
-	uc := NewUsecase(nil)
+	uc := NewUsecase(&mockChecker{})
 	ctrl := NewController(base, uc)
 
 	w := httptest.NewRecorder()

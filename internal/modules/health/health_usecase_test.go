@@ -18,26 +18,6 @@ func (m *mockChecker) PingStorage(ctx context.Context) error   { return m.s3Err 
 func (m *mockChecker) PingPublisher(ctx context.Context) error { return m.rmqErr }
 func (m *mockChecker) PingMailer(ctx context.Context) error    { return m.smtpErr }
 
-func TestUsecase_CheckHealth_NilChecker(t *testing.T) {
-	u := NewUsecase(nil)
-	status := u.CheckHealth(context.Background())
-	if status.Database != constants.IntegrationStatusDisconnected {
-		t.Errorf("expected db disconnected, got %s", status.Database)
-	}
-	if status.Redis != constants.IntegrationStatusDisconnected {
-		t.Errorf("expected redis disconnected, got %s", status.Redis)
-	}
-	if status.S3 != constants.IntegrationStatusDisconnected {
-		t.Errorf("expected s3 disconnected, got %s", status.S3)
-	}
-	if status.RabbitMQ != constants.IntegrationStatusDisconnected {
-		t.Errorf("expected rabbitmq disconnected, got %s", status.RabbitMQ)
-	}
-	if status.SMTP != constants.IntegrationStatusDisconnected {
-		t.Errorf("expected smtp disconnected, got %s", status.SMTP)
-	}
-}
-
 func TestUsecase_CheckHealth_Connected(t *testing.T) {
 	checker := &mockChecker{}
 	u := NewUsecase(checker)

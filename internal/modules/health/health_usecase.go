@@ -30,28 +30,19 @@ func NewUsecase(checker HealthChecker) *Usecase {
 
 // CheckHealth inspects the connectivity of sub-systems (database, redis, s3, rabbitmq, smtp).
 func (u *Usecase) CheckHealth(ctx context.Context) Services {
-	check := func(pingFn func(context.Context) error) string {
-		if u.checker == nil || pingFn == nil || ctxutil.RunWithTimeout(ctx, 0, pingFn) != nil {
-			return constants.IntegrationStatusDisconnected
-		}
-		return constants.IntegrationStatusConnected
-	}
-
-	if u.checker == nil {
-		return Services{
-			Database: constants.IntegrationStatusDisconnected,
-			Redis:    constants.IntegrationStatusDisconnected,
-			S3:       constants.IntegrationStatusDisconnected,
-			RabbitMQ: constants.IntegrationStatusDisconnected,
-			SMTP:     constants.IntegrationStatusDisconnected,
-		}
-	}
-
 	return Services{
-		Database: check(u.checker.PingDatabase),
-		Redis:    check(u.checker.PingRedis),
-		S3:       check(u.checker.PingStorage),
-		RabbitMQ: check(u.checker.PingPublisher),
-		SMTP:     check(u.checker.PingMailer),
+		Database: pingStatus(ctx, u.checker.PingDatabase),
+		Redis:    pingStatus(ctx, u.checker.PingRedis),
+		S3:       pingStatus(ctx, u.checker.PingStorage),
+		RabbitMQ: pingStatus(ctx, u.checker.PingPublisher),
+		SMTP:     pingStatus(ctx, u.checker.PingMailer),
 	}
+}
+
+// pingStatus checks whether a ping operation succeeds within the default timeout.
+func pingStatus(ctx context.Context, pingFn func(context.Context) error) string {
+	if ctxutil.RunWithTimeout(ctx, 0, pingFn) != nil {
+		return constants.IntegrationStatusDisconnected
+	}
+	return constants.IntegrationStatusConnected
 }
