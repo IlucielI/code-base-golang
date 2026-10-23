@@ -25,8 +25,8 @@ func TestModules_New(t *testing.T) {
 		t.Error("expected non-nil metrics controller")
 	}
 
-	handlers := mods.Handlers()
-	if len(handlers) != 3 {
-		t.Errorf("expected 3 handlers, got %d", len(handlers))
+	consumers := mods.Consumers()
+	if consumers == nil {
+		t.Error("expected non-nil consumers slice")
 	}
 }

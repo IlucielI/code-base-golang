@@ -24,15 +24,6 @@ func New(adp *adapters.Adapters) *Modules {
 	}
 }
 
-// Handlers returns a list of all active module controllers for dynamic route dispatching.
-func (m *Modules) Handlers() []any {
-	return []any{
-		m.Health,
-		m.Docs,
-		m.Metrics,
-	}
-}
-
 // Consumers returns a list of all active domain event consumers for background workers.
 func (m *Modules) Consumers() []workers.Consumer {
 	return []workers.Consumer{

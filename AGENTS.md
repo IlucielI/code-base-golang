@@ -42,7 +42,7 @@ This document defines the architectural invariants, conventions, and workflows f
 
 ### 2.2. Declarative Route Configuration & Dynamic Dispatch
 - Routes are declared in `internal/routes/routes.yaml`.
-- The router (`internal/routes/router.go`) inspects the active modules registered in `internal/modules/modules.go` via `mods.Handlers()`.
+- The router (`internal/routes/router.go`) inspects active controllers registered on `*modules.Modules` via reflection.
 - Routes and handler methods (e.g., `handler: HealthCheck`) are dynamically mapped via reflection without manual Go router wiring or forwarding boilerplate.
 - **Route-Level Middlewares**: Middlewares defined in `routes.yaml` (e.g. `auth`, `basic_auth`, `anon_auth`, `optional_auth`) map directly to PascalCase methods on `*Middlewares` (`internal/middlewares/`).
 - **Granular Permissions**: Declared via `permission: "<resource>:<action>"` in `routes.yaml` and mapped directly to `mws.RequirePermission(r.Permission)`.
@@ -116,7 +116,7 @@ This document defines the architectural invariants, conventions, and workflows f
    - Use `pkg/apperror.AppError` for domain and HTTP errors.
    - Format all HTTP responses using `response.APIResponse` and `response.BaseResponse`.
    - Repository/adapter calls return raw errors; usecases map expected errors (e.g. `gorm.ErrRecordNotFound` $\rightarrow$ `constants.ErrNotFound`) and wrap unexpected failures with `constants.ErrInternalServerError.Wrap(err)`.
-   - Controllers invoke `c.WrapError(ctx, err)` which automatically records traces on OpenTelemetry spans and formats standardized fail/error responses.
+   - Controllers invoke `response.Error(ctx, err)` which automatically records traces on OpenTelemetry spans and formats standardized fail/error responses.
 2. **Context & Metadata Propagation**:
    - Always accept `context.Context` as the first parameter in repository, usecase, and adapter methods.
    - Extract client metadata using `pkg/ctxmeta` (`RequestID`, `ClientIP`, `UserAgent`).
@@ -135,9 +135,9 @@ This document defines the architectural invariants, conventions, and workflows f
 4. **DTO**: Define payload structs in `<domain>_dto.go`.
 5. **Validation**: Define validation functions in `<domain>_validation.go`.
 6. **Usecase**: Define business logic in `<domain>_usecase.go`.
-7. **Controller**: Define handler struct embedding `controller.Base` in `<domain>_controller.go`.
+7. **Controller**: Define handler struct in `<domain>_controller.go`.
 8. **Module Provider**: Define `Register(adp *adapters.Adapters) *Controller` in `<domain>_module.go`.
-9. **Module Registry**: Register the new module in `internal/modules/modules.go` and include in `Handlers() []controller.Controller`.
+9. **Module Registry**: Register the new module in `internal/modules/modules.go` (router automatically discovers controller methods via reflection).
 10. **Routes**: Register path, HTTP method, and middleware in `internal/routes/routes.yaml`.
 11. **Unit Tests**: Add tests alongside code (`<domain>_controller_test.go`, `<domain>_usecase_test.go`).
 

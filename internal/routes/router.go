@@ -89,7 +89,7 @@ func NewRouter(cfg config.Config, mods *modules.Modules, idempotencyStore ...mid
 	if mods == nil {
 		log.Fatal("router configuration error: modules must not be nil")
 	}
-	moduleHandlers := mods.Handlers()
+	modsVal := reflect.ValueOf(mods).Elem()
 
 	// Load and parse embedded YAML routes
 	var rCfg routeConfig
@@ -101,11 +101,12 @@ func NewRouter(cfg config.Config, mods *modules.Modules, idempotencyStore ...mid
 	for _, r := range rCfg.Routes {
 		methodName := strings.TrimSpace(r.Handler)
 		var method reflect.Value
-		for _, h := range moduleHandlers {
-			if h == nil {
+		for i := 0; i < modsVal.NumField(); i++ {
+			fieldVal := modsVal.Field(i)
+			if (fieldVal.Kind() == reflect.Pointer || fieldVal.Kind() == reflect.Interface) && fieldVal.IsNil() {
 				continue
 			}
-			m := reflect.ValueOf(h).MethodByName(methodName)
+			m := fieldVal.MethodByName(methodName)
 			if m.IsValid() {
 				method = m
 				break
