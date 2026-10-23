@@ -130,7 +130,7 @@ func (c *Controllers) ListRoles(ctx *gin.Context) {
         c.wrapError(ctx, constants.ErrBadRequest.WithMessage(err.Error()))
         return
     }
-    resp, err := c.svc.ListRoles(ctx.Request.Context(), query)
+    resp, err := c.uc.ListRoles(ctx.Request.Context(), query)
     if err != nil {
         c.wrapError(ctx, err)
         return
@@ -150,18 +150,26 @@ func ValidateRoleListQuery(q *dtos.RoleListQuery) error {
 }
 ```
 
-### DTO Naming & Layering
+### DTOs, Entities, and External Adapters (Data Flow)
 
-DTO structs follow two roles:
+Data objects are partitioned into three clear boundaries:
 
-- Input: `<Name>Request` (JSON body) or `<Name>Query` (query-string/list params; usually has `SetDefaults()`).
-- Output: `<Name>Data` for data returned to the client in the response envelope's `data` field (e.g. `APIResponse[HealthData]`). Nested sub-structs used only inside a `*Data` payload need no suffix.
+1. **Inbound Client DTOs (`internal/dtos/`)**:
+   - Input payloads: `<Name>Request` (JSON body) or `<Name>Query` (query-string params with `SetDefaults()`).
+   - Output payloads: `<Name>Data` for data returned to client in `APIResponse[T].Data`.
+   - `controllers` bind/validate `*Request`/`*Query` and render `*Data`.
+   - `usecases` accept `*Request`/`*Query` as input and assemble `*Data` from domain models.
+   - `repositories` **never** import `internal/dtos`.
 
-Which layer may touch DTOs:
+2. **Domain Entities & Persistence Models (`internal/models/`)**:
+   - Pragmatically unified in `internal/models/*_model.go`, embedding `BaseModel` (UUID, timestamps, soft-deletes) and GORM tags.
+   - Entities serve as the internal domain currency passed between usecases (`usecases` $\leftrightarrow$ `usecases`) and persistence (`usecases` $\leftrightarrow$ `repositories`).
+   - Entities **never** leak directly to HTTP clients.
 
-- `controllers` bind/validate `*Request`/`*Query` and return `*Data`.
-- `services` take `*Request`/`*Query` as input and build `*Data` from domain models.
-- `repositories` **never** import `internal/dtos` — they work with `internal/models` entities plus primitives or local filter types, so transport shapes never leak into persistence.
+3. **External DTOs & Anti-Corruption Layer (`internal/adapters/<provider>/`)**:
+   - Outbound requests to third-party APIs or remote microservices (HTTP, gRPC) use dedicated request/response DTOs defined **strictly inside their respective adapter package** (e.g. `internal/adapters/<provider>/dto.go`), never in `internal/dtos/`.
+   - The adapter acts as an **Anti-Corruption Layer (ACL)**: it accepts domain entities/parameters from usecase port interfaces, maps them to External Request DTOs, performs the network call, and translates External Response DTOs back into domain entities/models before returning to the usecase.
+   - Core usecases and models never import or depend on foreign microservice schemas.
 
 ### Repository Filters & Pagination
 
@@ -170,7 +178,7 @@ Query filters used by repositories live directly inside `internal/repositories/`
 - Shared pagination and sorting parameters use `PaginationFilter` (`Limit int`, `Offset int`) and `SortFilter` (`SortBy string`, `Order string`) defined in `internal/repositories/filter.go`.
 - Reusable pagination logic and metadata live in `internal/dtos/pagination_dto.go` (`PaginationQuery` with `SetDefaults()` and `Offset()`, and `PaginationMeta` with `NewPaginationMeta(page, limit, total)`).
 - Domain-specific filter structs live alongside their repository entities (e.g. `UserFilter` in `user_repository.go`), embedding `PaginationFilter` and `SortFilter`.
-- Services map transport query DTOs (`*Query`) into repository filters using `query.Offset()` before calling repository methods.
+- Usecases map transport query DTOs (`*Query`) into repository filters using `query.Offset()` before calling repository methods.
 
 ### Templates & Large Text Content
 
