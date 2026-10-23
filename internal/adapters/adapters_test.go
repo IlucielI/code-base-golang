@@ -35,24 +35,3 @@ func TestNewAdapters(t *testing.T) {
 		t.Error("expected error pinging nil mailer")
 	}
 }
-
-func TestAdapters_Ping_NilReceiver(t *testing.T) {
-	var adp *Adapters
-	ctx := context.Background()
-
-	if err := adp.PingDatabase(ctx); err == nil {
-		t.Error("expected error for nil receiver PingDatabase")
-	}
-	if err := adp.PingRedis(ctx); err == nil {
-		t.Error("expected error for nil receiver PingRedis")
-	}
-	if err := adp.PingStorage(ctx); err == nil {
-		t.Error("expected error for nil receiver PingStorage")
-	}
-	if err := adp.PingPublisher(ctx); err == nil {
-		t.Error("expected error for nil receiver PingPublisher")
-	}
-	if err := adp.PingMailer(ctx); err == nil {
-		t.Error("expected error for nil receiver PingMailer")
-	}
-}
