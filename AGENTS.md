@@ -26,14 +26,14 @@ This document defines the architectural invariants, conventions, and workflows f
 - Business features live strictly within self-contained modules under `internal/modules/<domain>/` (e.g., `internal/modules/health/`, `internal/modules/docs/`, `internal/modules/metrics/`).
 - Each module encapsulates its own domain concerns:
   - `<domain>_controller.go`: HTTP transport handling (embeds `controller.Base`).
-  - `<domain>_module.go`: Module provider exporting `Register(appCtx *app.Context) *Controller`.
+  - `<domain>_module.go`: Module provider exporting `Register(adp *adapters.Adapters) *Controller`.
   - `<domain>_usecase.go`: Pure business logic and domain orchestration.
   - `<domain>_dto.go`: Input payloads (`*Request`, `*Query`) and output payloads (`*Data`).
   - `<domain>_model.go`: Domain entities and persistence schemas (embedding `model.BaseModel`).
   - `<domain>_validation.go`: Input validation logic using `ozzo-validation`.
 - **Decoupled Ports & Interfaces**: Modules and usecases **MUST NEVER** depend on concrete adapters (`internal/adapters/*`). They consume idiomatic Go consumer interfaces defined at the point of consumption (e.g. `health.Pinger`).
-- **Shared Infrastructure**: Cross-cutting reusable infrastructure lives under `internal/pkg/`:
-  - `internal/pkg/app/`: Application-level infrastructure context container (`app.Context`).
+- **Shared Infrastructure**: Cross-cutting reusable infrastructure lives under `internal/pkg/` (with adapters aggregated in `internal/adapters/adapters.go`):
+  - `internal/adapters/`: Infrastructure adapters and central container (`adapters.Adapters`).
   - `internal/pkg/controller/`: Shared `controller.Base` with standardized error wrapping (`WrapError`) and response helpers (`RespondOK`, `RespondCreated`, `RespondEmpty`).
   - `internal/pkg/response/`: Standard envelope types (`APIResponse[T]`, `BaseResponse`).
   - `internal/pkg/pagination/`: Reusable pagination queries, metadata, and database filters (`Query`, `Meta`, `Filter`, `Sort`).
@@ -134,7 +134,7 @@ This document defines the architectural invariants, conventions, and workflows f
 5. **Validation**: Define validation functions in `<domain>_validation.go`.
 6. **Usecase**: Define business logic in `<domain>_usecase.go`.
 7. **Controller**: Define handler struct embedding `controller.Base` in `<domain>_controller.go`.
-8. **Module Provider**: Define `Register(appCtx *app.Context) *Controller` in `<domain>_module.go`.
+8. **Module Provider**: Define `Register(adp *adapters.Adapters) *Controller` in `<domain>_module.go`.
 9. **Module Registry**: Register the new module in `internal/modules/modules.go` and include in `Handlers() []controller.Controller`.
 10. **Routes**: Register path, HTTP method, and middleware in `internal/routes/routes.yaml`.
 11. **Unit Tests**: Add tests alongside code (`<domain>_controller_test.go`, `<domain>_usecase_test.go`).

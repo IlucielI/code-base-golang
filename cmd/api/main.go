@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"code-base-golang/internal/adapters"
 	"code-base-golang/internal/adapters/database"
 	"code-base-golang/internal/adapters/rabbitmq"
 	"code-base-golang/internal/adapters/redis"
@@ -16,7 +17,6 @@ import (
 	"code-base-golang/internal/adapters/smtp"
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/modules"
-	"code-base-golang/internal/pkg/app"
 	"code-base-golang/internal/pkg/logger"
 	"code-base-golang/internal/pkg/migration"
 	"code-base-golang/internal/pkg/tracing"
@@ -137,9 +137,9 @@ func main() {
 	// Initialize SMTP mailer adapter
 	smtpAdapter := smtp.New(cfg)
 
-	// Build application infrastructure context and domain modules
-	appCtx := app.NewContext(cfg, db, rdb, s3Adapter, broker, smtpAdapter)
-	mods := modules.New(appCtx)
+	// Build infrastructure adapters and domain modules
+	adp := adapters.New(cfg, db, rdb, s3Adapter, broker, smtpAdapter)
+	mods := modules.New(adp)
 	router := routes.NewRouter(cfg, mods, rdb)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

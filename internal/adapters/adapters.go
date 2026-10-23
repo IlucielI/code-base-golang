@@ -1,4 +1,4 @@
-package app
+package adapters
 
 import (
 	"code-base-golang/internal/adapters/database"
@@ -10,8 +10,8 @@ import (
 	"code-base-golang/internal/pkg/controller"
 )
 
-// Context encapsulates application configuration and shared infrastructure adapters.
-type Context struct {
+// Adapters groups all shared infrastructure adapters and application base controller.
+type Adapters struct {
 	Config    config.Config
 	DB        *database.Postgres
 	Redis     *redis.Redis
@@ -21,16 +21,16 @@ type Context struct {
 	Base      controller.Base
 }
 
-// NewContext creates a new application infrastructure Context.
-func NewContext(
+// New initializes and returns a container of all configured infrastructure adapters.
+func New(
 	cfg config.Config,
 	db *database.Postgres,
 	rdb *redis.Redis,
 	storage *s3.S3,
 	publisher *rabbitmq.RabbitMQ,
 	mailer *smtp.SMTP,
-) *Context {
-	return &Context{
+) *Adapters {
+	return &Adapters{
 		Config:    cfg,
 		DB:        db,
 		Redis:     rdb,

@@ -1,10 +1,10 @@
 package modules
 
 import (
+	"code-base-golang/internal/adapters"
 	"code-base-golang/internal/modules/docs"
 	"code-base-golang/internal/modules/health"
 	"code-base-golang/internal/modules/metrics"
-	"code-base-golang/internal/pkg/app"
 	"code-base-golang/internal/pkg/controller"
 )
 
@@ -15,12 +15,12 @@ type Modules struct {
 	Metrics *metrics.Controller
 }
 
-// New initializes all active domain modules using the shared application context.
-func New(appCtx *app.Context) *Modules {
+// New initializes all active domain modules using the shared infrastructure adapters.
+func New(adp *adapters.Adapters) *Modules {
 	return &Modules{
-		Health:  health.Register(appCtx),
-		Docs:    docs.Register(appCtx),
-		Metrics: metrics.Register(appCtx),
+		Health:  health.Register(adp),
+		Docs:    docs.Register(adp),
+		Metrics: metrics.Register(adp),
 	}
 }
 

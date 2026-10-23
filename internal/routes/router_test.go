@@ -9,18 +9,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"code-base-golang/internal/adapters"
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
 	"code-base-golang/internal/modules"
 	"code-base-golang/internal/modules/health"
-	"code-base-golang/internal/pkg/app"
 	"code-base-golang/internal/pkg/response"
 	"code-base-golang/internal/routes"
 )
 
 func setupModules(cfg config.Config) *modules.Modules {
-	appCtx := app.NewContext(cfg, nil, nil, nil, nil, nil)
-	return modules.New(appCtx)
+	adp := adapters.New(cfg, nil, nil, nil, nil, nil)
+	return modules.New(adp)
 }
 
 func TestRouter_HealthCheck(t *testing.T) {

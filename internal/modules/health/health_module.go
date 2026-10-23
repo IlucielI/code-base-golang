@@ -1,31 +1,31 @@
 package health
 
 import (
-	"code-base-golang/internal/pkg/app"
+	"code-base-golang/internal/adapters"
 	"code-base-golang/internal/pkg/controller"
 )
 
-// Register initializes and wires the health module using the shared application context.
-func Register(appCtx *app.Context) *Controller {
+// Register initializes and wires the health module using the shared infrastructure adapters.
+func Register(adp *adapters.Adapters) *Controller {
 	pingers := make(map[string]Pinger)
 	base := controller.Base{}
 
-	if appCtx != nil {
-		base = appCtx.Base
-		if appCtx.DB != nil {
-			pingers["database"] = appCtx.DB
+	if adp != nil {
+		base = adp.Base
+		if adp.DB != nil {
+			pingers["database"] = adp.DB
 		}
-		if appCtx.Redis != nil {
-			pingers["redis"] = appCtx.Redis
+		if adp.Redis != nil {
+			pingers["redis"] = adp.Redis
 		}
-		if appCtx.Storage != nil {
-			pingers["s3"] = appCtx.Storage
+		if adp.Storage != nil {
+			pingers["s3"] = adp.Storage
 		}
-		if appCtx.Publisher != nil {
-			pingers["rabbitmq"] = appCtx.Publisher
+		if adp.Publisher != nil {
+			pingers["rabbitmq"] = adp.Publisher
 		}
-		if appCtx.Mailer != nil {
-			pingers["smtp"] = appCtx.Mailer
+		if adp.Mailer != nil {
+			pingers["smtp"] = adp.Mailer
 		}
 	}
 
