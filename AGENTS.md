@@ -30,14 +30,14 @@ This document defines the architectural invariants, conventions, and workflows f
   - `<domain>_module.go`: Module provider exporting `Register(adp *adapters.Adapters) *Controller`.
   - `<domain>_usecase.go`: Pure business logic and domain orchestration.
   - `<domain>_dto.go`: Input payloads (`*Request`, `*Query`) and output payloads (`*Data`).
-  - `<domain>_model.go`: Domain entities and persistence schemas (embedding `model.BaseModel`).
+  - `<domain>_model.go`: Domain entities and persistence schemas (embedding `gormutil.BaseModel`).
   - `<domain>_validation.go`: Input validation logic using `ozzo-validation`.
 - **Decoupled Ports & Interfaces**: Modules and usecases **MUST NEVER** depend on concrete adapters (`internal/adapters/*`). They consume idiomatic Go consumer interfaces defined at the point of consumption (e.g. `health.Pinger`).
 - **Shared Infrastructure**: Cross-cutting reusable infrastructure lives under `internal/pkg/` (with adapters aggregated in `internal/adapters/adapters.go`):
   - `internal/adapters/`: Infrastructure adapters and central container (`adapters.Adapters`).
   - `internal/pkg/response/`: Standard envelope types (`APIResponse[T]`, `BaseResponse`) and functional helpers (`OK`, `Created`, `Empty`, `Error`).
   - `internal/pkg/pagination/`: Reusable pagination queries, metadata, and database filters (`Query`, `Meta`, `Filter`, `Sort`).
-  - `internal/pkg/model/`: Shared GORM entity base (`BaseModel`, `JSONMap`).
+  - `internal/pkg/gormutil/`: Shared GORM entity base (`BaseModel`, `JSONMap`).
   - `internal/pkg/apperror/`: Application error definitions and stack tracing.
 
 ### 2.2. Declarative Route Configuration & Dynamic Dispatch
@@ -91,7 +91,7 @@ This document defines the architectural invariants, conventions, and workflows f
     - Shared packages in `internal/pkg/`:
      - `response/`: Response envelopes and functional helpers (`response.go`).
      - `pagination/`: Pagination structures (`pagination.go`).
-     - `model/`: Base models (`base_model.go`).
+     - `gormutil/`: GORM base models and custom types (`base_model.go`).
 0a. **DTO Naming & Layering (MANDATORY)**:
    - Input payloads: `<Name>Request` for JSON bodies, `<Name>Query` for query params (usually carries `SetDefaults()`).
    - Output payloads: `<Name>Data` for structs returned in `response.APIResponse[T].Data`.
@@ -131,7 +131,7 @@ This document defines the architectural invariants, conventions, and workflows f
 ### Adding a New Modular Feature
 1. **Migration**: Run `make migrate-create name=create_<domain>_table` and write `.up.sql` & `.down.sql`.
 2. **Module Directory**: Create `internal/modules/<domain>/`.
-3. **Model**: Define entity struct embedding `model.BaseModel` in `<domain>_model.go`.
+3. **Model**: Define entity struct embedding `gormutil.BaseModel` in `<domain>_model.go`.
 4. **DTO**: Define payload structs in `<domain>_dto.go`.
 5. **Validation**: Define validation functions in `<domain>_validation.go`.
 6. **Usecase**: Define business logic in `<domain>_usecase.go`.

@@ -90,19 +90,17 @@ The boilerplate adheres strictly to **Clean Architecture** and idiomatic Go desi
     │   └── modules.go      # Central modules registry and router handler aggregator
     ├── pkg/                # Reusable cross-cutting packages
     │   ├── apperror/       # Standard application errors & stack tracing
-    │   ├── controller/     # Shared controller.Base (RespondOK, RespondCreated, WrapError)
     │   ├── ctxmeta/        # Context client metadata extraction
     │   ├── ctxutil/        # Goroutine timeout execution helpers
+    │   ├── gormutil/       # Shared BaseModel and JSONMap GORM types
     │   ├── hasher/         # Password and token hashing utilities
     │   ├── jwt/            # JWT signing, validation, and claims
     │   ├── logger/         # Structured slog logger
     │   ├── metrics/        # Prometheus metrics collectors
     │   ├── migration/      # CLI database migration runner
-    │   ├── model/          # Shared BaseModel and JSONMap types
     │   ├── pagination/     # Reusable query, meta, and database filters
     │   ├── response/       # Standard APIResponse[T] and BaseResponse envelopes
     │   └── strutil/        # String manipulation helpers
-    ├── queue/              # Queue message payloads (ID, MustParse, domain payloads)
     ├── routes/             # YAML-based route registration (routes.yaml) and dynamic dispatch
     └── workers/            # Background queue subscribers and worker pool orchestration
 ```
@@ -113,10 +111,10 @@ Each domain module lives under `internal/modules/<domain>/` with its own special
 
 | File Pattern | Purpose |
 |--------------|---------|
-| `<domain>_controller.go` | HTTP handlers (embeds `controller.Base`) |
+| `<domain>_controller.go` | HTTP handlers (pure Go struct using `pkg/response`) |
 | `<domain>_usecase.go` | Pure business logic and domain orchestration |
 | `<domain>_dto.go` | Request and response DTO schemas |
-| `<domain>_model.go` | Domain entities & GORM persistence schemas (embeds `model.BaseModel`) |
+| `<domain>_model.go` | Domain entities & GORM persistence schemas (embeds `gormutil.BaseModel`) |
 | `<domain>_validation.go` | ozzo-validation input validation rules |
 
 ### Request Validation
@@ -126,31 +124,30 @@ Request validation is standardized and strictly scoped within each domain module
 - All validation uses **ozzo-validation** and lives in `internal/modules/<domain>/<domain>_validation.go` as standalone functions.
 - DTOs hold only struct definitions, tags, and an optional `SetDefaults()` for pagination/query fallbacks (no `Validate()` method).
 - Each request type gets a standalone function `Validate<Name>(req *<Name>Request) error`.
-- Domain controllers embed `controller.Base` and wire validation explicitly, keeping handlers thin:
+- Domain controllers are pure Go structs that wire validation explicitly and use functional response helpers:
 
 ```go
 type Controller struct {
-    controller.Base
     uc *Usecase
 }
 
 func (c *Controller) ListRoles(ctx *gin.Context) {
     var query RoleListQuery
     if err := ctx.ShouldBindQuery(&query); err != nil {
-        c.WrapError(ctx, constants.ErrBadRequest.WithMessage("invalid query parameters"))
+        response.Error(ctx, constants.ErrBadRequest.WithMessage("invalid query parameters"))
         return
     }
     query.SetDefaults()
     if err := ValidateRoleListQuery(&query); err != nil {
-        c.WrapError(ctx, constants.ErrBadRequest.WithMessage(err.Error()))
+        response.Error(ctx, constants.ErrBadRequest.WithMessage(err.Error()))
         return
     }
     resp, err := c.uc.ListRoles(ctx.Request.Context(), query)
     if err != nil {
-        c.WrapError(ctx, err)
+        response.Error(ctx, err)
         return
     }
-    c.RespondOK(ctx, "Roles retrieved successfully", resp)
+    response.OK(ctx, "Roles retrieved successfully", resp)
 }
 ```
 
@@ -177,7 +174,7 @@ Data objects are partitioned into three clear boundaries:
    - `repositories` **never** import `internal/dtos`.
 
 2. **Domain Entities & Persistence Models (`internal/models/`)**:
-   - Pragmatically unified in `internal/models/*_model.go`, embedding `BaseModel` (UUID, timestamps, soft-deletes) and GORM tags.
+   - Pragmatically unified in `internal/models/*_model.go`, embedding `gormutil.BaseModel` (UUID, timestamps, soft-deletes) and GORM tags.
    - Entities serve as the internal domain currency passed between usecases (`usecases` $\leftrightarrow$ `usecases`) and persistence (`usecases` $\leftrightarrow$ `repositories`).
    - Entities **never** leak directly to HTTP clients.
 
