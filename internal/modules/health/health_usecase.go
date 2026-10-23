@@ -7,41 +7,51 @@ import (
 	"code-base-golang/internal/pkg/ctxutil"
 )
 
-// Pinger defines the interface for sub-systems that can report their health status via Ping.
-type Pinger interface {
-	Ping(ctx context.Context) error
+// HealthChecker defines the diagnostic ping interface required by the health usecase.
+type HealthChecker interface {
+	PingDatabase(ctx context.Context) error
+	PingRedis(ctx context.Context) error
+	PingStorage(ctx context.Context) error
+	PingPublisher(ctx context.Context) error
+	PingMailer(ctx context.Context) error
 }
 
 // Usecase encapsulates business logic for health checks across system integrations.
 type Usecase struct {
-	pingers map[string]Pinger
+	checker HealthChecker
 }
 
 // NewUsecase constructs a new health Usecase instance.
-func NewUsecase(pingers map[string]Pinger) *Usecase {
-	if pingers == nil {
-		pingers = make(map[string]Pinger)
-	}
+func NewUsecase(checker HealthChecker) *Usecase {
 	return &Usecase{
-		pingers: pingers,
+		checker: checker,
 	}
 }
 
 // CheckHealth inspects the connectivity of sub-systems (database, redis, s3, rabbitmq, smtp).
 func (u *Usecase) CheckHealth(ctx context.Context) Services {
-	check := func(name string) string {
-		p := u.pingers[name]
-		if p == nil || ctxutil.RunWithTimeout(ctx, 0, p.Ping) != nil {
+	check := func(pingFn func(context.Context) error) string {
+		if u.checker == nil || pingFn == nil || ctxutil.RunWithTimeout(ctx, 0, pingFn) != nil {
 			return constants.IntegrationStatusDisconnected
 		}
 		return constants.IntegrationStatusConnected
 	}
 
+	if u.checker == nil {
+		return Services{
+			Database: constants.IntegrationStatusDisconnected,
+			Redis:    constants.IntegrationStatusDisconnected,
+			S3:       constants.IntegrationStatusDisconnected,
+			RabbitMQ: constants.IntegrationStatusDisconnected,
+			SMTP:     constants.IntegrationStatusDisconnected,
+		}
+	}
+
 	return Services{
-		Database: check("database"),
-		Redis:    check("redis"),
-		S3:       check("s3"),
-		RabbitMQ: check("rabbitmq"),
-		SMTP:     check("smtp"),
+		Database: check(u.checker.PingDatabase),
+		Redis:    check(u.checker.PingRedis),
+		S3:       check(u.checker.PingStorage),
+		RabbitMQ: check(u.checker.PingPublisher),
+		SMTP:     check(u.checker.PingMailer),
 	}
 }

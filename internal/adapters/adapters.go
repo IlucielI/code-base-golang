@@ -1,6 +1,9 @@
 package adapters
 
 import (
+	"context"
+	"errors"
+
 	"code-base-golang/internal/adapters/database"
 	"code-base-golang/internal/adapters/rabbitmq"
 	"code-base-golang/internal/adapters/redis"
@@ -39,4 +42,44 @@ func New(
 		Mailer:    mailer,
 		Base:      controller.NewBase(cfg),
 	}
+}
+
+// PingDatabase checks the health connectivity of the PostgreSQL database adapter.
+func (a *Adapters) PingDatabase(ctx context.Context) error {
+	if a == nil || a.DB == nil {
+		return errors.New("database adapter is not initialized")
+	}
+	return a.DB.Ping(ctx)
+}
+
+// PingRedis checks the health connectivity of the Redis adapter.
+func (a *Adapters) PingRedis(ctx context.Context) error {
+	if a == nil || a.Redis == nil {
+		return errors.New("redis adapter is not initialized")
+	}
+	return a.Redis.Ping(ctx)
+}
+
+// PingStorage checks the health connectivity of the S3/MinIO storage adapter.
+func (a *Adapters) PingStorage(ctx context.Context) error {
+	if a == nil || a.Storage == nil {
+		return errors.New("storage adapter is not initialized")
+	}
+	return a.Storage.Ping(ctx)
+}
+
+// PingPublisher checks the health connectivity of the RabbitMQ message broker.
+func (a *Adapters) PingPublisher(ctx context.Context) error {
+	if a == nil || a.Publisher == nil {
+		return errors.New("publisher adapter is not initialized")
+	}
+	return a.Publisher.Ping(ctx)
+}
+
+// PingMailer checks the health connectivity of the SMTP mailer adapter.
+func (a *Adapters) PingMailer(ctx context.Context) error {
+	if a == nil || a.Mailer == nil {
+		return errors.New("mailer adapter is not initialized")
+	}
+	return a.Mailer.Ping(ctx)
 }

@@ -8,15 +8,17 @@ import (
 	"code-base-golang/internal/constants"
 )
 
-type mockPinger struct {
-	err error
+type mockChecker struct {
+	dbErr, redisErr, s3Err, rmqErr, smtpErr error
 }
 
-func (m *mockPinger) Ping(ctx context.Context) error {
-	return m.err
-}
+func (m *mockChecker) PingDatabase(ctx context.Context) error  { return m.dbErr }
+func (m *mockChecker) PingRedis(ctx context.Context) error     { return m.redisErr }
+func (m *mockChecker) PingStorage(ctx context.Context) error   { return m.s3Err }
+func (m *mockChecker) PingPublisher(ctx context.Context) error { return m.rmqErr }
+func (m *mockChecker) PingMailer(ctx context.Context) error    { return m.smtpErr }
 
-func TestUsecase_CheckHealth_EmptyDependencies(t *testing.T) {
+func TestUsecase_CheckHealth_NilChecker(t *testing.T) {
 	u := NewUsecase(nil)
 	status := u.CheckHealth(context.Background())
 	if status.Database != constants.IntegrationStatusDisconnected {
@@ -37,15 +39,8 @@ func TestUsecase_CheckHealth_EmptyDependencies(t *testing.T) {
 }
 
 func TestUsecase_CheckHealth_Connected(t *testing.T) {
-	pingers := map[string]Pinger{
-		"database": &mockPinger{err: nil},
-		"redis":    &mockPinger{err: nil},
-		"s3":       &mockPinger{err: nil},
-		"rabbitmq": &mockPinger{err: nil},
-		"smtp":     &mockPinger{err: nil},
-	}
-
-	u := NewUsecase(pingers)
+	checker := &mockChecker{}
+	u := NewUsecase(checker)
 	status := u.CheckHealth(context.Background())
 
 	if status.Database != constants.IntegrationStatusConnected {
@@ -66,15 +61,15 @@ func TestUsecase_CheckHealth_Connected(t *testing.T) {
 }
 
 func TestUsecase_CheckHealth_PingErrors(t *testing.T) {
-	pingers := map[string]Pinger{
-		"database": &mockPinger{err: errors.New("db ping failed")},
-		"redis":    &mockPinger{err: errors.New("redis ping failed")},
-		"s3":       &mockPinger{err: errors.New("s3 ping failed")},
-		"rabbitmq": &mockPinger{err: errors.New("rmq ping failed")},
-		"smtp":     &mockPinger{err: errors.New("smtp ping failed")},
+	checker := &mockChecker{
+		dbErr:    errors.New("db ping failed"),
+		redisErr: errors.New("redis ping failed"),
+		s3Err:    errors.New("s3 ping failed"),
+		rmqErr:   errors.New("rmq ping failed"),
+		smtpErr:  errors.New("smtp ping failed"),
 	}
 
-	u := NewUsecase(pingers)
+	u := NewUsecase(checker)
 	status := u.CheckHealth(context.Background())
 
 	if status.Database != constants.IntegrationStatusDisconnected {
