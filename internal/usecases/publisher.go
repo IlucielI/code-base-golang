@@ -1,4 +1,4 @@
-package services
+package usecases
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 
 // EventPublisher defines the abstract contract for publishing domain events.
 // Any message broker adapter (RabbitMQ, NATS, Kafka, Redis Streams) that implements
-// these methods can be seamlessly injected into the application services.
+// these methods can be seamlessly injected into the application use cases.
 type EventPublisher interface {
 	// Ping checks if the message broker is reachable.
 	Ping(ctx context.Context) error

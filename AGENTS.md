@@ -23,12 +23,12 @@ This document defines the architectural invariants, conventions, and workflows f
 ## 2. Architectural Invariants
 
 ### 2.1. Clean Architecture & Decoupled Ports
-- Pure business logic lives strictly in `internal/services/`.
-- Services and workers **MUST NEVER** import or depend directly on concrete adapters (`internal/adapters/*`).
+- Pure business logic lives strictly in `internal/usecases/`.
+- Usecases and workers **MUST NEVER** import or depend directly on concrete adapters (`internal/adapters/*`).
 - Always consume idiomatic Go consumer interfaces defined in domain packages:
-  - `services.FileStorage` (`internal/services/storage.go`)
-  - `services.EventPublisher` (`internal/services/publisher.go`)
-  - `services.EmailSender` (`internal/services/mailer.go`)
+  - `usecases.FileStorage` (`internal/usecases/storage.go`)
+  - `usecases.EventPublisher` (`internal/usecases/publisher.go`)
+  - `usecases.EmailSender` (`internal/usecases/mailer.go`)
   - `workers.EventSubscriber` (`internal/workers/subscriber.go`)
 - Concrete adapters (`database`, `redis`, `s3`, `rabbitmq`, `smtp`) live in `internal/adapters/` and are injected in `cmd/api/main.go`.
 
@@ -45,8 +45,8 @@ This document defines the architectural invariants, conventions, and workflows f
 - When `AUTO_MIGRATE=true`, migrations apply automatically on application/container startup after database connectivity is confirmed.
 
 ### 2.4. Container Construction & Nil-Receiver Policy
-- Application container structs (`*Service`, `*Repositories`, `*Controllers`, `*Middlewares`, `*WorkerServer`) are guaranteed non-nil by construction at startup (`cmd/api/main.go`).
-- **NEVER** write defensive `if s == nil`, `if r == nil`, or `if w == nil` receiver checks on container methods or getters. If a container is nil, it represents a fatal initialization bug that must fail fast, not silently return nil.
+- Application container structs (`*Usecases`, `*Repositories`, `*Controllers`, `*Middlewares`, `*WorkerServer`) are guaranteed non-nil by construction at startup (`cmd/api/main.go`).
+- **NEVER** write defensive `if u == nil`, `if r == nil`, or `if w == nil` receiver checks on container methods or getters. If a container is nil, it represents a fatal initialization bug that must fail fast, not silently return nil.
 - Sub-adapter availability (e.g. optional RabbitMQ broker or Redis connection) should be guarded at the field level (e.g. `if r.rdb == nil` or `if w.sub == nil`), not at the container pointer level.
 
 ---
@@ -93,11 +93,11 @@ This document defines the architectural invariants, conventions, and workflows f
      - Output payloads: `<Name>Data` for any struct returned to the client in the response envelope's `data` field (matches `APIResponse[T].Data`, e.g. `APIResponse[HealthData]`). Nested sub-structs used only inside a `*Data` payload need no suffix (e.g. a `HealthServices` embedded in `HealthData`).
    - **Layering — who may use DTOs:**
      - `controllers` consume `*Request`/`*Query` (bind + validate) and emit `*Data`.
-     - `services` accept `*Request`/`*Query` as use-case input and build `*Data` from domain models.
+     - `usecases` accept `*Request`/`*Query` as use-case input and build `*Data` from domain models.
      - `repositories` **MUST NEVER** import `internal/dtos`. They operate on `internal/models` entities plus primitives or local filter types (e.g. a `RoleFilter` defined in `repositories`). Transport shapes never leak into the persistence layer.
 0b. **Repository Filter & Pagination Conventions (MANDATORY)**:
    - Query filters used by repositories live directly inside `internal/repositories/` — **NEVER** in a sub-package (e.g. no `repositories/filters/`).
-   - Repository filters are **pure data structs without logic or calculation methods**. Transport-to-persistence math (such as calculating offset, default limits, or metadata) belongs strictly in `internal/dtos/` and `internal/services/`.
+   - Repository filters are **pure data structs without logic or calculation methods**. Transport-to-persistence math (such as calculating offset, default limits, or metadata) belongs strictly in `internal/dtos/` and `internal/usecases/`.
    - Common pagination and sorting parameters use shared types in `internal/repositories/filter.go`:
      - `repositories.PaginationFilter` (`Limit int`, `Offset int`)
      - `repositories.SortFilter` (`SortBy string`, `Order string`)
@@ -105,7 +105,7 @@ This document defines the architectural invariants, conventions, and workflows f
      - `dtos.PaginationQuery` (with `SetDefaults()` and `Offset()`)
      - `dtos.PaginationMeta` (with `CalculateTotalPages()` and `NewPaginationMeta(page, limit, total)`)
    - Domain-specific filter structs live in their respective repository files (e.g. `UserFilter` in `internal/repositories/user_repository.go`) embedding `PaginationFilter` and/or `SortFilter`.
-   - Services convert transport queries (`dtos.<Entity>ListQuery`) into `repositories.<Entity>Filter` before invoking the repository:
+   - Usecases convert transport queries (`dtos.<Entity>ListQuery`) into `repositories.<Entity>Filter` before invoking the repository:
      ```go
      filter := repositories.UserFilter{
          PaginationFilter: repositories.PaginationFilter{
@@ -119,12 +119,12 @@ This document defines the architectural invariants, conventions, and workflows f
    - Use `pkg/apperror.AppError` for domain and HTTP errors.
    - Format all HTTP responses using the standardized envelope in `internal/dtos/response_dto.go` (`status`, `code`, `message`, `data`, `errors`, `timestamp`).
    - **Repositories return raw errors.** A repository returns the underlying driver/GORM error unchanged (e.g. `return nil, err`, propagating `gorm.ErrRecordNotFound`). Repositories **MUST NOT** import `constants`/`apperror` or assign HTTP status — persistence does not know about transport concerns.
-   - **Services translate errors into `AppError`.** The service layer is where raw errors become domain errors. Map expected conditions to the right template (e.g. `errors.Is(err, gorm.ErrRecordNotFound)` → `constants.ErrNotFound`, a 4xx that carries no stack) and wrap everything unexpected as a 5xx: `return constants.ErrInternalServerError.Wrap(err)`.
-   - **Why wrap in the service, not the controller.** `AppError.Wrap` captures a Go stack trace for 5xx errors at the *first* wrap point. Wrapping in the service makes the trace point at the service line closest to the failing repository call. If a raw error bubbles all the way up, the controller's `wrapError` wraps it there instead and the stack points at the controller — much less useful. Go cannot reconstruct the original repository line from a bare error, so the service call site is the most useful anchor; do not add `AppError` wrapping inside repositories to chase it.
+   - **Usecases translate errors into `AppError`.** The usecase layer is where raw errors become domain errors. Map expected conditions to the right template (e.g. `errors.Is(err, gorm.ErrRecordNotFound)` → `constants.ErrNotFound`, a 4xx that carries no stack) and wrap everything unexpected as a 5xx: `return constants.ErrInternalServerError.Wrap(err)`.
+   - **Why wrap in the usecase, not the controller.** `AppError.Wrap` captures a Go stack trace for 5xx errors at the *first* wrap point. Wrapping in the usecase makes the trace point at the usecase line closest to the failing repository call. If a raw error bubbles all the way up, the controller's `wrapError` wraps it there instead and the stack points at the controller — much less useful. Go cannot reconstruct the original repository line from a bare error, so the usecase call site is the most useful anchor; do not add `AppError` wrapping inside repositories to chase it.
    - The controller's `wrapError` is the final safety net: it records the error (and any captured stack) on the active OpenTelemetry span, and in development logs the stack for local debugging.
-   - Example (service):
+   - Example (usecase):
      ```go
-     role, err := s.repo.FindRoleByID(ctx, id)
+     role, err := u.repo.FindRoleByID(ctx, id)
      if err != nil {
          if errors.Is(err, gorm.ErrRecordNotFound) {
              return nil, constants.ErrNotFound.WithMessage("role not found")
@@ -133,7 +133,7 @@ This document defines the architectural invariants, conventions, and workflows f
      }
      ```
 2. **Context & Metadata Propagation**:
-   - Always accept `context.Context` as the first parameter in repository, service, and external adapter methods.
+   - Always accept `context.Context` as the first parameter in repository, usecase, and external adapter methods.
    - Extract client metadata using `pkg/ctxmeta` (`RequestID`, `ClientIP`, `UserAgent`).
 3. **Request Validation (MANDATORY — ozzo-validation, in `internal/validations/`)**:
    - All request validation **MUST** use `ozzo-validation` (`github.com/go-ozzo/ozzo-validation/v4`) and **MUST** live in `internal/validations/<entity>_validation.go` — **never** inside `internal/dtos/`.
@@ -152,7 +152,7 @@ This document defines the architectural invariants, conventions, and workflows f
              c.wrapError(ctx, constants.ErrBadRequest.WithMessage(err.Error()))
              return
          }
-         resp, err := c.svc.ListRoles(ctx.Request.Context(), query)
+         resp, err := c.uc.ListRoles(ctx.Request.Context(), query)
          if err != nil {
              c.wrapError(ctx, err)
              return
@@ -204,24 +204,24 @@ This document defines the architectural invariants, conventions, and workflows f
 3. **Repository**: Define interface and GORM queries in `internal/repositories/`.
 4. **DTO**: Define request/response payload structs in `internal/dtos/<entity>_dto.go` (struct + tags only; add `SetDefaults()` for list/query DTOs). No `Validate()` method here.
 5. **Validation**: Define `func Validate<Name>(req *dtos.<Name>) error` using `ozzo-validation` in `internal/validations/<entity>_validation.go`.
-6. **Service**: Define interface & business implementation in `internal/services/`.
-7. **Controller**: Add handler method in `internal/controllers/` following the flow: bind (`ShouldBindJSON`/`ShouldBindQuery`) → `SetDefaults()` → `validations.Validate<Name>(&req)` → service call → `respondOK`/`respondCreated`.
+6. **Usecase**: Define interface & business implementation in `internal/usecases/`.
+7. **Controller**: Add handler method in `internal/controllers/` following the flow: bind (`ShouldBindJSON`/`ShouldBindQuery`) → `SetDefaults()` → `validations.Validate<Name>(&req)` → usecase call → `respondOK`/`respondCreated`.
 8. **Routes**: Register path, HTTP method, and auth middlewares in `internal/routes/routes.yaml`.
 9. **Unit Tests**: Add tests alongside code using Go's standard `testing` package.
 
 ### Adding an Asynchronous Event / Worker
 1. Define the queue message payload struct in `internal/queue/`.
-2. Publish the event via `services.EventPublisher.Publish(ctx, exchange, routingKey, body)`.
+2. Publish the event via `usecases.EventPublisher.Publish(ctx, exchange, routingKey, body)`.
 3. Add the handler method in `internal/workers/` and subscribe it inside `WorkerServer.RegisterWorker` with `w.sub.MustSubscribe(constants.Topic<Name>, w.Handle<Name>)`.
 
 **Worker handler rules (keep handlers thin, no boilerplate):**
 - **Never** repeat the parse → log → run-service → map-to-ack sequence in each handler. Route every handler through the shared generic `handleMessage[T]` helper in `worker.go`, which decodes the payload, logs the start/finish/error lifecycle uniformly, and returns the ack/nack bool:
   ```go
   func (w *WorkerServer) HandleUserRegistered(ctx context.Context, msg []byte) bool {
-      return handleMessage(ctx, "user.registered", msg, w.svc.NotifyUserRegistered)
+      return handleMessage(ctx, "user.registered", msg, w.uc.NotifyUserRegistered)
   }
   ```
-  The `process` function passed in is typically a service method with signature `func(context.Context, T) error`; business logic stays in the service, never in the handler.
+  The `process` function passed in is typically a usecase method with signature `func(context.Context, T) error`; business logic stays in the usecase, never in the handler.
 - A handler returns `true` to ACK and `false` to NACK (routing the message to the DLQ/retry). Let `handleMessage` derive this from the service error — do not hand-roll ack logic.
 - Always honour the broker-provided `ctx` (for cancellation/tracing); do not create a fresh `context.Background()` inside handlers.
 - **One handler file per domain**, not one growing `worker.go`. `worker.go` holds only `WorkerServer`, `New`, `RegisterWorker` and the shared helper; put domain handlers in `internal/workers/<domain>_worker.go` (e.g. `recording_worker.go`). `RegisterWorker` stays the single registry of all subscriptions, grouped by domain with comments.

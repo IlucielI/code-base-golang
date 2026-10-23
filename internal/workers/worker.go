@@ -6,21 +6,21 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/queue"
-	"code-base-golang/internal/services"
+	"code-base-golang/internal/usecases"
 )
 
 // WorkerServer manages and registers all background worker subscriptions.
 type WorkerServer struct {
 	cfg config.Config
-	svc *services.Service
+	uc  *usecases.Usecases
 	sub EventSubscriber
 }
 
 // New creates a new WorkerServer instance.
-func New(cfg config.Config, svc *services.Service, sub EventSubscriber) *WorkerServer {
+func New(cfg config.Config, uc *usecases.Usecases, sub EventSubscriber) *WorkerServer {
 	return &WorkerServer{
 		cfg: cfg,
-		svc: svc,
+		uc:  uc,
 		sub: sub,
 	}
 }
@@ -48,7 +48,7 @@ func (w *WorkerServer) RegisterWorker() {
 // Typical handler:
 //
 //	func (w *WorkerServer) HandleUserRegistered(ctx context.Context, msg []byte) bool {
-//	    return handleMessage(ctx, "user.registered", msg, w.svc.NotifyUserRegistered)
+//	    return handleMessage(ctx, "user.registered", msg, w.uc.NotifyUserRegistered)
 //	}
 func handleMessage[T any](ctx context.Context, name string, msg []byte, process func(context.Context, T) error) bool {
 	var payload T

@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"code-base-golang/internal/config"
-	"code-base-golang/internal/services"
+	"code-base-golang/internal/usecases"
 )
 
-// SMTP implements services.EmailSender using standard SMTP protocol.
+// SMTP implements usecases.EmailSender using standard SMTP protocol.
 type SMTP struct {
 	host      string
 	port      string
@@ -26,8 +26,8 @@ type SMTP struct {
 	useSSL    bool
 }
 
-// Ensure SMTP satisfies services.EmailSender at compile time.
-var _ services.EmailSender = (*SMTP)(nil)
+// Ensure SMTP satisfies usecases.EmailSender at compile time.
+var _ usecases.EmailSender = (*SMTP)(nil)
 
 // New initializes an SMTP adapter from application configuration.
 func New(cfg config.Config) *SMTP {
@@ -68,7 +68,7 @@ func (s *SMTP) Ping(ctx context.Context) error {
 }
 
 // Send formats and transmits an email message via SMTP.
-func (s *SMTP) Send(ctx context.Context, msg services.EmailMessage) error {
+func (s *SMTP) Send(ctx context.Context, msg usecases.EmailMessage) error {
 	if s == nil || s.host == "" {
 		return errors.New("smtp client is nil or unconfigured")
 	}

@@ -1,4 +1,4 @@
-package services
+package usecases
 
 import (
 	"context"
@@ -8,34 +8,34 @@ import (
 	"code-base-golang/internal/pkg/ctxutil"
 )
 
-// CheckHealth inspects the connectivity of sub-systems (database, redis, s3 storage).
-// The service is guaranteed non-nil by construction: cmd/api/main.go always injects a
-// live service, and routes.NewRouter rejects a nil controller. Individual adapters may
+// CheckHealth inspects the connectivity of sub-systems (database, redis, s3 storage, rabbitmq, smtp).
+// The usecases container is guaranteed non-nil by construction: cmd/api/main.go always injects a
+// live container, and routes.NewRouter rejects a nil controller. Individual adapters may
 // still be nil (e.g. the broker fails to connect outside production), so each is guarded
 // and reported as disconnected rather than panicking.
-func (s *Service) CheckHealth(ctx context.Context) dtos.HealthServices {
+func (u *Usecases) CheckHealth(ctx context.Context) dtos.HealthServices {
 	dbStatus := constants.IntegrationStatusConnected
-	if s.repo == nil || ctxutil.RunWithTimeout(ctx, 0, s.repo.PingDB) != nil {
+	if u.repo == nil || ctxutil.RunWithTimeout(ctx, 0, u.repo.PingDB) != nil {
 		dbStatus = constants.IntegrationStatusDisconnected
 	}
 
 	redisStatus := constants.IntegrationStatusConnected
-	if s.repo == nil || ctxutil.RunWithTimeout(ctx, 0, s.repo.PingRedis) != nil {
+	if u.repo == nil || ctxutil.RunWithTimeout(ctx, 0, u.repo.PingRedis) != nil {
 		redisStatus = constants.IntegrationStatusDisconnected
 	}
 
 	s3Status := constants.IntegrationStatusConnected
-	if s.storage == nil || ctxutil.RunWithTimeout(ctx, 0, s.storage.Ping) != nil {
+	if u.storage == nil || ctxutil.RunWithTimeout(ctx, 0, u.storage.Ping) != nil {
 		s3Status = constants.IntegrationStatusDisconnected
 	}
 
 	rmqStatus := constants.IntegrationStatusConnected
-	if s.publisher == nil || ctxutil.RunWithTimeout(ctx, 0, s.publisher.Ping) != nil {
+	if u.publisher == nil || ctxutil.RunWithTimeout(ctx, 0, u.publisher.Ping) != nil {
 		rmqStatus = constants.IntegrationStatusDisconnected
 	}
 
 	smtpStatus := constants.IntegrationStatusConnected
-	if s.mailer == nil || ctxutil.RunWithTimeout(ctx, 0, s.mailer.Ping) != nil {
+	if u.mailer == nil || ctxutil.RunWithTimeout(ctx, 0, u.mailer.Ping) != nil {
 		smtpStatus = constants.IntegrationStatusDisconnected
 	}
 

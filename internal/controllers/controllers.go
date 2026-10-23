@@ -13,33 +13,33 @@ import (
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
 	"code-base-golang/internal/dtos"
-	"code-base-golang/internal/services"
+	"code-base-golang/internal/usecases"
 )
 
 // Controllers is the central container for all handler methods.
 type Controllers struct {
 	cfg       config.Config
-	svc       *services.Service
+	uc        *usecases.Usecases
 	startedAt time.Time
 }
 
 // New initializes the central controllers container with application dependencies.
-func New(cfg config.Config, svc *services.Service) *Controllers {
+func New(cfg config.Config, uc *usecases.Usecases) *Controllers {
 	return &Controllers{
 		cfg:       cfg,
-		svc:       svc,
+		uc:        uc,
 		startedAt: time.Now(),
 	}
 }
 
-// SetService allows overriding or injecting custom / mock Service for tests.
-func (c *Controllers) SetService(s *services.Service) {
-	c.svc = s
+// SetUsecases allows overriding or injecting custom / mock Usecases for tests.
+func (c *Controllers) SetUsecases(u *usecases.Usecases) {
+	c.uc = u
 }
 
-// Service returns the underlying service container.
-func (c *Controllers) Service() *services.Service {
-	return c.svc
+// Usecases returns the underlying usecases container.
+func (c *Controllers) Usecases() *usecases.Usecases {
+	return c.uc
 }
 
 // wrapError translates any error into a standard JSON response using AppError metadata.

@@ -11,7 +11,7 @@ import (
 
 // HealthCheck handles health status inquiries.
 func (c *Controllers) HealthCheck(ctx *gin.Context) {
-	servicesStatus := c.svc.CheckHealth(ctx.Request.Context())
+	servicesStatus := c.uc.CheckHealth(ctx.Request.Context())
 
 	c.respondOK(ctx, constants.ResponseMessageSuccess, dtos.HealthData{
 		Version:  c.cfg.Version,
