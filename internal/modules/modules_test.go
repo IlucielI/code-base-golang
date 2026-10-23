@@ -31,10 +31,3 @@ func TestModules_New(t *testing.T) {
 		t.Errorf("expected 3 handlers, got %d", len(handlers))
 	}
 }
-
-func TestModules_Handlers_NilSafe(t *testing.T) {
-	var m *modules.Modules
-	if h := m.Handlers(); h != nil {
-		t.Errorf("expected nil from nil modules handlers, got %v", h)
-	}
-}

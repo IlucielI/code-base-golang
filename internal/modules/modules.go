@@ -25,9 +25,6 @@ func New(appCtx *app.Context) *Modules {
 
 // Handlers returns a list of all active module controllers for dynamic route dispatching.
 func (m *Modules) Handlers() []any {
-	if m == nil {
-		return nil
-	}
 	return []any{
 		m.Health,
 		m.Docs,
