@@ -10,7 +10,6 @@ import (
 
 	"code-base-golang/internal/adapters/smtp"
 	"code-base-golang/internal/config"
-	"code-base-golang/internal/usecases"
 )
 
 func TestSMTP_Address(t *testing.T) {
@@ -32,12 +31,12 @@ func TestSMTP_ValidationErrors(t *testing.T) {
 		t.Error("expected error pinging nil adapter")
 	}
 
-	if err := nilAdapter.Send(ctx, usecases.EmailMessage{To: []string{"a@b.com"}}); err == nil {
+	if err := nilAdapter.Send(ctx, smtp.EmailMessage{To: []string{"a@b.com"}}); err == nil {
 		t.Error("expected error sending via nil adapter")
 	}
 
 	adapter := smtp.New(config.Config{SMTPHost: "localhost", SMTPPort: "1025"})
-	if err := adapter.Send(ctx, usecases.EmailMessage{To: nil}); err == nil {
+	if err := adapter.Send(ctx, smtp.EmailMessage{To: nil}); err == nil {
 		t.Error("expected error sending with empty To")
 	}
 }
@@ -122,7 +121,7 @@ func TestSMTP_Send_MockServer(t *testing.T) {
 		SMTPFromName:  "Test System",
 	})
 
-	err = adapter.Send(context.Background(), usecases.EmailMessage{
+	err = adapter.Send(context.Background(), smtp.EmailMessage{
 		To:       []string{"user@example.com"},
 		Subject:  "Welcome!",
 		TextBody: "Hello world!",

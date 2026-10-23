@@ -11,8 +11,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/dtos"
 	"code-base-golang/internal/pkg/ctxmeta"
+	"code-base-golang/internal/pkg/response"
 )
 
 type recoveryOptions struct {
@@ -75,7 +75,7 @@ func (m *Middlewares) Recovery(opts ...RecoveryOption) gin.HandlerFunc {
 				_, _ = fmt.Fprint(cfg.writer, logMsg)
 
 				// 3. Respond with standardized unified JSON error envelope
-				c.AbortWithStatusJSON(http.StatusInternalServerError, dtos.BaseResponse{
+				c.AbortWithStatusJSON(http.StatusInternalServerError, response.BaseResponse{
 					Status:    constants.ResponseStatusError,
 					Code:      constants.ResponseCodeInternalError,
 					Message:   constants.ErrInternalServerError.Message,

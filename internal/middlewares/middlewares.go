@@ -10,7 +10,7 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/dtos"
+	"code-base-golang/internal/pkg/response"
 )
 
 // Middlewares is the central container for route-level and global middleware methods.
@@ -49,7 +49,7 @@ func abortError(c *gin.Context, statusCode int, code, message string) {
 	if statusCode >= http.StatusInternalServerError {
 		status = constants.ResponseStatusError
 	}
-	c.AbortWithStatusJSON(statusCode, dtos.BaseResponse{
+	c.AbortWithStatusJSON(statusCode, response.BaseResponse{
 		Status:    status,
 		Code:      code,
 		Message:   message,

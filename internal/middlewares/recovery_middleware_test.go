@@ -12,9 +12,9 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/dtos"
 	"code-base-golang/internal/middlewares"
 	"code-base-golang/internal/pkg/ctxmeta"
+	"code-base-golang/internal/pkg/response"
 )
 
 func init() {
@@ -70,7 +70,7 @@ func TestRecovery_CatchesPanicAndReturnsUnifiedEnvelope(t *testing.T) {
 		t.Fatalf("expected status 500 on panic recovery, got %d", w.Code)
 	}
 
-	var resp dtos.BaseResponse
+	var resp response.BaseResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to decode response envelope: %v", err)
 	}

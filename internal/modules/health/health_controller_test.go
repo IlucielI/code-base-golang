@@ -10,16 +10,16 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/dtos"
 	"code-base-golang/internal/modules/health"
 	"code-base-golang/internal/pkg/controller"
+	"code-base-golang/internal/pkg/response"
 )
 
 func TestController_HealthCheck(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := config.Config{Version: "1.0.0", GitHash: "abcdef"}
 	base := controller.NewBase(cfg)
-	uc := health.NewUsecase(nil, nil, nil, nil)
+	uc := health.NewUsecase(nil, nil, nil, nil, nil)
 	ctrl := health.NewController(base, uc)
 
 	w := httptest.NewRecorder()
@@ -32,7 +32,7 @@ func TestController_HealthCheck(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", w.Code)
 	}
 
-	var resp dtos.APIResponse[dtos.HealthData]
+	var resp response.APIResponse[health.Data]
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}

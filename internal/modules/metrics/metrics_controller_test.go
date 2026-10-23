@@ -1,4 +1,4 @@
-package controllers
+package metrics_test
 
 import (
 	"net/http"
@@ -9,17 +9,20 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"code-base-golang/internal/config"
+	"code-base-golang/internal/modules/metrics"
+	"code-base-golang/internal/pkg/controller"
 )
 
-func TestControllers_PrometheusMetrics(t *testing.T) {
+func TestController_PrometheusMetrics(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	ctrls := New(config.Config{}, nil)
+	base := controller.NewBase(config.Config{})
+	ctrl := metrics.NewController(base)
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/metrics", nil)
 
-	ctrls.PrometheusMetrics(ctx)
+	ctrl.PrometheusMetrics(ctx)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 OK from PrometheusMetrics, got %d", w.Code)

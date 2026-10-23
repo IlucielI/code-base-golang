@@ -4,9 +4,7 @@ import (
 	"context"
 
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/dtos"
 	"code-base-golang/internal/pkg/ctxutil"
-	"code-base-golang/internal/repositories"
 )
 
 // Pinger defines the interface for sub-systems that can report their health status via Ping.
@@ -16,16 +14,18 @@ type Pinger interface {
 
 // Usecase encapsulates business logic for health checks across system integrations.
 type Usecase struct {
-	repo      *repositories.Repositories
+	db        Pinger
+	redis     Pinger
 	storage   Pinger
 	publisher Pinger
 	mailer    Pinger
 }
 
 // NewUsecase constructs a new health Usecase instance.
-func NewUsecase(repo *repositories.Repositories, storage Pinger, publisher Pinger, mailer Pinger) *Usecase {
+func NewUsecase(db Pinger, redis Pinger, storage Pinger, publisher Pinger, mailer Pinger) *Usecase {
 	return &Usecase{
-		repo:      repo,
+		db:        db,
+		redis:     redis,
 		storage:   storage,
 		publisher: publisher,
 		mailer:    mailer,
@@ -33,14 +33,14 @@ func NewUsecase(repo *repositories.Repositories, storage Pinger, publisher Pinge
 }
 
 // CheckHealth inspects the connectivity of sub-systems (database, redis, s3, rabbitmq, smtp).
-func (u *Usecase) CheckHealth(ctx context.Context) dtos.HealthServices {
+func (u *Usecase) CheckHealth(ctx context.Context) Services {
 	dbStatus := constants.IntegrationStatusConnected
-	if u.repo == nil || ctxutil.RunWithTimeout(ctx, 0, u.repo.PingDB) != nil {
+	if u.db == nil || ctxutil.RunWithTimeout(ctx, 0, u.db.Ping) != nil {
 		dbStatus = constants.IntegrationStatusDisconnected
 	}
 
 	redisStatus := constants.IntegrationStatusConnected
-	if u.repo == nil || ctxutil.RunWithTimeout(ctx, 0, u.repo.PingRedis) != nil {
+	if u.redis == nil || ctxutil.RunWithTimeout(ctx, 0, u.redis.Ping) != nil {
 		redisStatus = constants.IntegrationStatusDisconnected
 	}
 
@@ -59,7 +59,7 @@ func (u *Usecase) CheckHealth(ctx context.Context) dtos.HealthServices {
 		smtpStatus = constants.IntegrationStatusDisconnected
 	}
 
-	return dtos.HealthServices{
+	return Services{
 		Database: dbStatus,
 		Redis:    redisStatus,
 		S3:       s3Status,

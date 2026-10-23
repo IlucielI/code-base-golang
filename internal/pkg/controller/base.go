@@ -12,7 +12,7 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/dtos"
+	"code-base-golang/internal/pkg/response"
 )
 
 // Base provides shared response formatting and error handling helpers for all controllers.
@@ -69,7 +69,7 @@ func (b *Base) WrapError(ctx *gin.Context, err error) {
 		}
 	}
 
-	ctx.JSON(appErr.HTTPStatus, dtos.BaseResponse{
+	ctx.JSON(appErr.HTTPStatus, response.BaseResponse{
 		Status:    status,
 		Code:      appErr.Code,
 		Message:   appErr.Message,
@@ -79,7 +79,7 @@ func (b *Base) WrapError(ctx *gin.Context, err error) {
 
 // RespondSuccess sends a standardized JSON success response envelope.
 func (b *Base) RespondSuccess(ctx *gin.Context, httpStatus int, message string, data any) {
-	ctx.JSON(httpStatus, dtos.APIResponse[any]{
+	ctx.JSON(httpStatus, response.APIResponse[any]{
 		Status:    constants.ResponseStatusSuccess,
 		Code:      constants.ResponseCodeSuccess,
 		Message:   message,
@@ -100,7 +100,7 @@ func (b *Base) RespondCreated(ctx *gin.Context, message string, data any) {
 
 // RespondEmpty sends a standard HTTP 200 OK JSON response without a data payload.
 func (b *Base) RespondEmpty(ctx *gin.Context, message string) {
-	ctx.JSON(http.StatusOK, dtos.BaseResponse{
+	ctx.JSON(http.StatusOK, response.BaseResponse{
 		Status:    constants.ResponseStatusSuccess,
 		Code:      constants.ResponseCodeSuccess,
 		Message:   message,

@@ -1,11 +1,13 @@
-package models
+package model_test
 
 import (
 	"testing"
+
+	"code-base-golang/internal/pkg/model"
 )
 
 func TestJSONMap_ValueAndScan(t *testing.T) {
-	m := JSONMap{"key": "value", "count": float64(42)}
+	m := model.JSONMap{"key": "value", "count": float64(42)}
 
 	// Test Value
 	val, err := m.Value()
@@ -14,7 +16,7 @@ func TestJSONMap_ValueAndScan(t *testing.T) {
 	}
 
 	// Test Scan with []byte
-	var scanned JSONMap
+	var scanned model.JSONMap
 	if err := scanned.Scan(val); err != nil {
 		t.Fatalf("unexpected error on Scan([]byte): %v", err)
 	}
@@ -23,7 +25,7 @@ func TestJSONMap_ValueAndScan(t *testing.T) {
 	}
 
 	// Test Scan with string
-	var scannedStr JSONMap
+	var scannedStr model.JSONMap
 	if err := scannedStr.Scan(`{"foo":"bar"}`); err != nil {
 		t.Fatalf("unexpected error on Scan(string): %v", err)
 	}
@@ -32,7 +34,7 @@ func TestJSONMap_ValueAndScan(t *testing.T) {
 	}
 
 	// Test Scan with nil
-	var scannedNil JSONMap
+	var scannedNil model.JSONMap
 	if err := scannedNil.Scan(nil); err != nil {
 		t.Fatalf("unexpected error on Scan(nil): %v", err)
 	}
@@ -41,7 +43,7 @@ func TestJSONMap_ValueAndScan(t *testing.T) {
 	}
 
 	// Test Scan with empty bytes
-	var scannedEmpty JSONMap
+	var scannedEmpty model.JSONMap
 	if err := scannedEmpty.Scan([]byte{}); err != nil {
 		t.Fatalf("unexpected error on Scan([]byte{}): %v", err)
 	}
@@ -50,7 +52,7 @@ func TestJSONMap_ValueAndScan(t *testing.T) {
 	}
 
 	// Test Value for nil map
-	var nilMap JSONMap
+	var nilMap model.JSONMap
 	nilVal, err := nilMap.Value()
 	if err != nil {
 		t.Fatalf("unexpected error on nil Value(): %v", err)
@@ -60,7 +62,7 @@ func TestJSONMap_ValueAndScan(t *testing.T) {
 	}
 
 	// Test Scan with invalid type
-	var invalidMap JSONMap
+	var invalidMap model.JSONMap
 	if err := invalidMap.Scan(12345); err == nil {
 		t.Fatal("expected error on Scan with unsupported type, got nil")
 	}

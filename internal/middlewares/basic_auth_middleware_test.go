@@ -11,7 +11,7 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/dtos"
+	"code-base-golang/internal/pkg/response"
 )
 
 func TestBasicAuthMiddleware(t *testing.T) {
@@ -46,7 +46,7 @@ func TestBasicAuthMiddleware(t *testing.T) {
 			t.Fatalf("expected status 401, got %d", w.Code)
 		}
 
-		var resp dtos.BaseResponse
+		var resp response.BaseResponse
 		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 			t.Fatalf("failed to decode response: %v", err)
 		}

@@ -15,13 +15,12 @@ import (
 	"code-base-golang/internal/adapters/s3"
 	"code-base-golang/internal/adapters/smtp"
 	"code-base-golang/internal/config"
-	"code-base-golang/internal/controllers"
+	"code-base-golang/internal/modules"
+	"code-base-golang/internal/modules/health"
 	"code-base-golang/internal/pkg/logger"
 	"code-base-golang/internal/pkg/migration"
 	"code-base-golang/internal/pkg/tracing"
-	"code-base-golang/internal/repositories"
 	"code-base-golang/internal/routes"
-	"code-base-golang/internal/usecases"
 	"code-base-golang/internal/workers"
 )
 
@@ -107,7 +106,7 @@ func main() {
 	}
 
 	// Initialize s3 storage adapter
-	var storage usecases.FileStorage
+	var s3Pinger health.Pinger
 	s3Adapter, err := s3.New(cfg)
 	if err != nil {
 		if cfg.AppEnv == "production" {
@@ -115,12 +114,13 @@ func main() {
 		}
 		log.Printf("[WARN] s3 connection failed: %v", err)
 	} else {
-		storage = s3Adapter
+		s3Pinger = s3Adapter
 		log.Println("s3 adapter connected successfully")
 	}
 
 	// Initialize rabbitmq adapter
 	var broker *rabbitmq.RabbitMQ
+	var brokerPinger health.Pinger
 	rmq, err := rabbitmq.New(cfg)
 	if err != nil {
 		if cfg.AppEnv == "production" {
@@ -129,6 +129,7 @@ func main() {
 		log.Printf("[WARN] rabbitmq connection failed: %v", err)
 	} else {
 		broker = rmq
+		brokerPinger = rmq
 		log.Println("rabbitmq adapter connected successfully")
 		defer func() {
 			if err := rmq.Close(); err != nil {
@@ -139,22 +140,29 @@ func main() {
 
 	// Initialize SMTP mailer adapter
 	smtpAdapter := smtp.New(cfg)
-
-	repo := repositories.New(db.DB(), rdb)
-	var publisher usecases.EventPublisher
-	if broker != nil {
-		publisher = broker
+	var smtpPinger health.Pinger
+	if smtpAdapter != nil {
+		smtpPinger = smtpAdapter
 	}
-	uc := usecases.New(cfg, repo, storage, publisher).WithMailer(smtpAdapter)
-	ctrls := controllers.New(cfg, uc)
-	router := routes.NewRouter(cfg, ctrls, rdb)
+
+	var dbPinger health.Pinger
+	if db != nil {
+		dbPinger = db
+	}
+	var rdbPinger health.Pinger
+	if rdb != nil {
+		rdbPinger = rdb
+	}
+
+	mods := modules.New(cfg, dbPinger, rdbPinger, s3Pinger, brokerPinger, smtpPinger)
+	router := routes.NewRouter(cfg, mods, rdb)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	// Register worker subscription to Message Queue
 	if broker != nil {
-		workerServer := workers.New(cfg, uc, broker)
+		workerServer := workers.New(cfg, mods, broker)
 		workerServer.RegisterWorker()
 	}
 

@@ -81,67 +81,82 @@ The boilerplate adheres strictly to **Clean Architecture** and idiomatic Go desi
     │   ├── s3/             # MinIO / AWS S3 storage adapter
     │   └── smtp/           # SMTP email dispatcher adapter
     ├── config/             # Environment variable parsing and validation
-    ├── constants/          # Application-wide error codes, statuses, token types, user roles, log levels, and response constants
-    ├── controllers/        # HTTP handlers parsing requests and rendering JSON responses
-    ├── dtos/               # Request payloads and API response definitions (*_dto.go)
-    ├── middlewares/        # Middlewares (CORS, Rate Limiter, Auth, Anon Auth, Optional Auth, Basic Auth, Permissions, Client Meta, Logger, Recovery, Body Limit)
-    ├── models/             # Domain entities and base models (*_model.go, e.g. BaseModel, JSONMap)
-    ├── pkg/                # Reusable packages (AppError, Context Metadata, JWT utilities, Migration, String utilities `strutil`)
-    ├── queue/              # Queue message payloads (Id, MustParse, domain payloads)
-    ├── repositories/       # Data access layer interfacing with GORM & Redis
-    ├── routes/             # YAML-based route registration (routes.yaml) and engine setup
-    ├── usecases/           # Core business logic orchestration (decoupled ports)
-    ├── validations/        # Struct input validations using Ozzo-Validation (*_validation.go)
+    ├── constants/          # Application error codes, statuses, token types, user roles, log levels
+    ├── middlewares/        # Middlewares (CORS, Rate Limiter, Auth, Basic Auth, Permissions, Client Meta, Logger, Recovery, Body Limit)
+    ├── modules/            # Self-contained domain modules (Clean Architecture)
+    │   ├── docs/           # Documentation endpoints controller
+    │   ├── health/         # System health check domain (controller, usecase, dto)
+    │   ├── metrics/        # Prometheus metrics scraping controller
+    │   └── modules.go      # Central modules registry and router handler aggregator
+    ├── pkg/                # Reusable cross-cutting packages
+    │   ├── apperror/       # Standard application errors & stack tracing
+    │   ├── controller/     # Shared controller.Base (RespondOK, RespondCreated, WrapError)
+    │   ├── ctxmeta/        # Context client metadata extraction
+    │   ├── ctxutil/        # Goroutine timeout execution helpers
+    │   ├── hasher/         # Password and token hashing utilities
+    │   ├── jwt/            # JWT signing, validation, and claims
+    │   ├── logger/         # Structured slog logger
+    │   ├── metrics/        # Prometheus metrics collectors
+    │   ├── migration/      # CLI database migration runner
+    │   ├── model/          # Shared BaseModel and JSONMap types
+    │   ├── pagination/     # Reusable query, meta, and database filters
+    │   ├── response/       # Standard APIResponse[T] and BaseResponse envelopes
+    │   └── strutil/        # String manipulation helpers
+    ├── queue/              # Queue message payloads (ID, MustParse, domain payloads)
+    ├── routes/             # YAML-based route registration (routes.yaml) and dynamic dispatch
     └── workers/            # Background queue subscribers and worker pool orchestration
 ```
 
-### File Naming Conventions
+### Module File Conventions
 
-To keep each layer's files self-describing, files in these packages carry a mandatory role suffix (applied to every file in the package, shared/base files included):
+Each domain module lives under `internal/modules/<domain>/` with its own specialized files:
 
-| Package | Suffix | Examples |
-|---------|--------|----------|
-| `internal/dtos/` | `*_dto.go` | `recording_dto.go`, `response_dto.go`, `pagination_dto.go` |
-| `internal/models/` | `*_model.go` | `recording_model.go`, `base_model.go` |
-| `internal/validations/` | `*_validation.go` | `recording_validation.go` |
-
-Test files append the suffix before `_test.go` (e.g. `recording_dto_test.go`).
-
-Other packages name files by topic rather than role — e.g. `internal/constants/` uses one file per topic/domain (`error.go`, `response.go`, `worker.go`, `auth.go`, `logger.go`, `<domain>.go`), not `*_constant.go`. Magic strings and numbers for token types, user roles, and log levels are defined in `constants/`.
+| File Pattern | Purpose |
+|--------------|---------|
+| `<domain>_controller.go` | HTTP handlers (embeds `controller.Base`) |
+| `<domain>_usecase.go` | Pure business logic and domain orchestration |
+| `<domain>_dto.go` | Request and response DTO schemas |
+| `<domain>_model.go` | Domain entities & GORM persistence schemas (embeds `model.BaseModel`) |
+| `<domain>_validation.go` | ozzo-validation input validation rules |
 
 ### Request Validation
 
-Request validation is standardized and strictly separated from DTOs:
+Request validation is standardized and strictly scoped within each domain module:
 
-- All validation uses **ozzo-validation** and lives in `internal/validations/<entity>_validation.go` as standalone functions — **never** inside `internal/dtos/`.
+- All validation uses **ozzo-validation** and lives in `internal/modules/<domain>/<domain>_validation.go` as standalone functions.
 - DTOs hold only struct definitions, tags, and an optional `SetDefaults()` for pagination/query fallbacks (no `Validate()` method).
-- Each request type gets a function `Validate<Name>(req *dtos.<Name>) error`. The `validations` package imports `dtos`, not the other way around (avoids an import cycle).
-- Controllers wire it explicitly, keeping handlers thin:
+- Each request type gets a standalone function `Validate<Name>(req *<Name>Request) error`.
+- Domain controllers embed `controller.Base` and wire validation explicitly, keeping handlers thin:
 
 ```go
-func (c *Controllers) ListRoles(ctx *gin.Context) {
-    var query dtos.RoleListQuery
+type Controller struct {
+    controller.Base
+    uc *Usecase
+}
+
+func (c *Controller) ListRoles(ctx *gin.Context) {
+    var query RoleListQuery
     if err := ctx.ShouldBindQuery(&query); err != nil {
-        c.wrapError(ctx, constants.ErrBadRequest.WithMessage("invalid query parameters"))
+        c.WrapError(ctx, constants.ErrBadRequest.WithMessage("invalid query parameters"))
         return
     }
     query.SetDefaults()
-    if err := validations.ValidateRoleListQuery(&query); err != nil {
-        c.wrapError(ctx, constants.ErrBadRequest.WithMessage(err.Error()))
+    if err := ValidateRoleListQuery(&query); err != nil {
+        c.WrapError(ctx, constants.ErrBadRequest.WithMessage(err.Error()))
         return
     }
     resp, err := c.uc.ListRoles(ctx.Request.Context(), query)
     if err != nil {
-        c.wrapError(ctx, err)
+        c.WrapError(ctx, err)
         return
     }
-    c.respondOK(ctx, "Roles retrieved successfully", resp)
+    c.RespondOK(ctx, "Roles retrieved successfully", resp)
 }
 ```
 
 ```go
-// internal/validations/role_validation.go
-func ValidateRoleListQuery(q *dtos.RoleListQuery) error {
+// internal/modules/role/role_validation.go
+func ValidateRoleListQuery(q *RoleListQuery) error {
     return validation.ValidateStruct(q,
         validation.Field(&q.Page, validation.Min(1)),
         validation.Field(&q.Limit, validation.Min(1), validation.Max(100)),

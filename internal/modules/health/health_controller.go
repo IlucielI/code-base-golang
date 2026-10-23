@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/dtos"
 	"code-base-golang/internal/pkg/controller"
 )
 
@@ -28,11 +27,11 @@ func NewController(base controller.Base, uc *Usecase) *Controller {
 // HealthCheck handles health status inquiries.
 func (c *Controller) HealthCheck(ctx *gin.Context) {
 	if c.uc == nil {
-		c.RespondOK(ctx, constants.ResponseMessageSuccess, dtos.HealthData{
+		c.RespondOK(ctx, constants.ResponseMessageSuccess, Data{
 			Version: c.Cfg.Version,
 			GitHash: c.Cfg.GitHash,
 			Uptime:  time.Since(c.StartedAt).String(),
-			Services: dtos.HealthServices{
+			Services: Services{
 				Database: constants.IntegrationStatusDisconnected,
 				Redis:    constants.IntegrationStatusDisconnected,
 				S3:       constants.IntegrationStatusDisconnected,
@@ -45,7 +44,7 @@ func (c *Controller) HealthCheck(ctx *gin.Context) {
 
 	servicesStatus := c.uc.CheckHealth(ctx.Request.Context())
 
-	c.RespondOK(ctx, constants.ResponseMessageSuccess, dtos.HealthData{
+	c.RespondOK(ctx, constants.ResponseMessageSuccess, Data{
 		Version:  c.Cfg.Version,
 		GitHash:  c.Cfg.GitHash,
 		Uptime:   time.Since(c.StartedAt).String(),

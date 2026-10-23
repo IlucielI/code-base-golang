@@ -11,19 +11,16 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/controllers"
-	"code-base-golang/internal/dtos"
+	"code-base-golang/internal/modules"
+	"code-base-golang/internal/modules/health"
+	"code-base-golang/internal/pkg/response"
 	"code-base-golang/internal/routes"
-	"code-base-golang/internal/usecases"
 )
 
 func TestRouter_HealthCheck(t *testing.T) {
 	cfg := config.Load()
-	// A live usecase container with nil adapters: the health endpoint must still return 200
-	// and report each unconfigured sub-system as disconnected.
-	uc := usecases.New(cfg, nil, nil)
-	ctrls := controllers.New(cfg, uc)
-	router := routes.NewRouter(cfg, ctrls)
+	mods := modules.New(cfg, nil, nil, nil, nil, nil)
+	router := routes.NewRouter(cfg, mods)
 
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest(http.MethodGet, "/v1/health", nil)
@@ -37,7 +34,7 @@ func TestRouter_HealthCheck(t *testing.T) {
 		t.Fatalf("expected status 200, got %d", w.Code)
 	}
 
-	var resp dtos.APIResponse[dtos.HealthData]
+	var resp response.APIResponse[health.Data]
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
@@ -73,8 +70,8 @@ func TestRouter_HealthCheck(t *testing.T) {
 
 func TestRouter_PanicRecovery(t *testing.T) {
 	cfg := config.Load()
-	ctrls := controllers.New(cfg, usecases.New(cfg, nil, nil))
-	router := routes.NewRouter(cfg, ctrls)
+	mods := modules.New(cfg, nil, nil, nil, nil, nil)
+	router := routes.NewRouter(cfg, mods)
 
 	// Register an endpoint that panics
 	router.GET("/v1/panic-test", func(c *gin.Context) {
@@ -98,7 +95,7 @@ func TestRouter_PanicRecovery(t *testing.T) {
 		t.Error("expected X-Request-ID header in response")
 	}
 
-	var resp dtos.BaseResponse
+	var resp response.BaseResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("failed to unmarshal JSON response: %v, body: %s", err, w.Body.String())
 	}
@@ -124,8 +121,8 @@ func TestRouter_PanicRecovery(t *testing.T) {
 
 func TestRouter_DocsEndpoints(t *testing.T) {
 	cfg := config.Load()
-	ctrls := controllers.New(cfg, usecases.New(cfg, nil, nil))
-	router := routes.NewRouter(cfg, ctrls)
+	mods := modules.New(cfg, nil, nil, nil, nil, nil)
+	router := routes.NewRouter(cfg, mods)
 
 	tests := []struct {
 		path        string
@@ -180,8 +177,8 @@ func TestRouter_DocsEndpoints(t *testing.T) {
 func TestRouter_MetricsEndpoint(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := config.Config{}
-	ctrls := controllers.New(cfg, usecases.New(cfg, nil, nil))
-	router := routes.NewRouter(cfg, ctrls)
+	mods := modules.New(cfg, nil, nil, nil, nil, nil)
+	router := routes.NewRouter(cfg, mods)
 
 	w := httptest.NewRecorder()
 	req, err := http.NewRequest(http.MethodGet, "/metrics", nil)

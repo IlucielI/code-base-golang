@@ -1,4 +1,4 @@
-package models
+package model
 
 import (
 	"database/sql/driver"
@@ -57,7 +57,7 @@ func (m *JSONMap) Scan(value interface{}) error {
 
 	var res map[string]interface{}
 	if err := json.Unmarshal(bytes, &res); err != nil {
-		return fmt.Errorf("failed to unmarshal JSONMap: %w", err)
+		return fmt.Errorf("unmarshal JSONMap: %w", err)
 	}
 
 	*m = res

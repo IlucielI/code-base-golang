@@ -11,9 +11,9 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/dtos"
 	"code-base-golang/internal/pkg/apperror"
 	"code-base-golang/internal/pkg/controller"
+	"code-base-golang/internal/pkg/response"
 )
 
 func TestBase_WrapError(t *testing.T) {
@@ -38,7 +38,7 @@ func TestBase_WrapError(t *testing.T) {
 		if w.Code != http.StatusConflict {
 			t.Fatalf("expected 409, got %d", w.Code)
 		}
-		var resp dtos.BaseResponse
+		var resp response.BaseResponse
 		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 			t.Fatalf("failed to decode response: %v", err)
 		}
@@ -55,7 +55,7 @@ func TestBase_WrapError(t *testing.T) {
 		if w.Code != http.StatusInternalServerError {
 			t.Fatalf("expected status 500, got %d", w.Code)
 		}
-		var resp dtos.BaseResponse
+		var resp response.BaseResponse
 		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
 			t.Fatalf("failed to decode: %v", err)
 		}

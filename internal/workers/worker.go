@@ -5,23 +5,23 @@ import (
 	"log"
 
 	"code-base-golang/internal/config"
+	"code-base-golang/internal/modules"
 	"code-base-golang/internal/queue"
-	"code-base-golang/internal/usecases"
 )
 
 // WorkerServer manages and registers all background worker subscriptions.
 type WorkerServer struct {
-	cfg config.Config
-	uc  *usecases.Usecases
-	sub EventSubscriber
+	cfg  config.Config
+	mods *modules.Modules
+	sub  EventSubscriber
 }
 
 // New creates a new WorkerServer instance.
-func New(cfg config.Config, uc *usecases.Usecases, sub EventSubscriber) *WorkerServer {
+func New(cfg config.Config, mods *modules.Modules, sub EventSubscriber) *WorkerServer {
 	return &WorkerServer{
-		cfg: cfg,
-		uc:  uc,
-		sub: sub,
+		cfg:  cfg,
+		mods: mods,
+		sub:  sub,
 	}
 }
 

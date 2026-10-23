@@ -9,8 +9,16 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/dtos"
 )
+
+// TokenResponse contains JWT access and refresh token pair with expiration details.
+type TokenResponse struct {
+	AccessToken      string `json:"access_token"`
+	RefreshToken     string `json:"refresh_token"`
+	TokenType        string `json:"token_type"`
+	ExpiresIn        int64  `json:"expires_in"`
+	RefreshExpiresIn int64  `json:"refresh_expires_in"`
+}
 
 // CustomClaims encapsulates application-specific payload fields in standard JWT claims.
 type CustomClaims struct {
@@ -24,7 +32,7 @@ type CustomClaims struct {
 
 // GenerateTokenPair signs and returns a new Access Token and Refresh Token pair.
 // An optional role can be specified (defaults to "user").
-func GenerateTokenPair(cfg config.Config, userID uuid.UUID, email string, sessionID string, role ...string) (*dtos.TokenResponse, error) {
+func GenerateTokenPair(cfg config.Config, userID uuid.UUID, email string, sessionID string, role ...string) (*TokenResponse, error) {
 	now := time.Now()
 	accessExp := now.Add(cfg.JWTAccessExpiration)
 	refreshExp := now.Add(cfg.JWTRefreshExpiration)
@@ -73,7 +81,7 @@ func GenerateTokenPair(cfg config.Config, userID uuid.UUID, email string, sessio
 		return nil, fmt.Errorf("failed to sign refresh token: %w", err)
 	}
 
-	return &dtos.TokenResponse{
+	return &TokenResponse{
 		AccessToken:      accessToken,
 		RefreshToken:     refreshToken,
 		TokenType:        constants.TokenTypeBearer,
@@ -103,7 +111,7 @@ func ValidateToken(cfg config.Config, tokenStr string) (*CustomClaims, error) {
 }
 
 // GenerateAnonToken signs and returns an anonymous guest token.
-func GenerateAnonToken(cfg config.Config) (*dtos.TokenResponse, error) {
+func GenerateAnonToken(cfg config.Config) (*TokenResponse, error) {
 	now := time.Now()
 	exp := now.Add(cfg.JWTAccessExpiration)
 	guestID := uuid.New()
@@ -125,7 +133,7 @@ func GenerateAnonToken(cfg config.Config) (*dtos.TokenResponse, error) {
 		return nil, fmt.Errorf("failed to sign anon token: %w", err)
 	}
 
-	return &dtos.TokenResponse{
+	return &TokenResponse{
 		AccessToken: tokenStr,
 		TokenType:   constants.TokenTypeBearer,
 		ExpiresIn:   int64(cfg.JWTAccessExpiration.Seconds()),

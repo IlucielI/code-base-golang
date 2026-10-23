@@ -1,0 +1,30 @@
+package docs
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	appdocs "code-base-golang/docs"
+	"code-base-golang/internal/pkg/controller"
+)
+
+// Controller handles API documentation endpoints.
+type Controller struct {
+	controller.Base
+}
+
+// NewController creates a new docs controller instance.
+func NewController(base controller.Base) *Controller {
+	return &Controller{Base: base}
+}
+
+// OpenAPISpec serves the raw OpenAPI 3.0 specification in YAML format.
+func (c *Controller) OpenAPISpec(ctx *gin.Context) {
+	ctx.Data(http.StatusOK, "application/x-yaml; charset=utf-8", appdocs.OpenAPISpec)
+}
+
+// APIDocs serves the modern Scalar API Reference interactive documentation page.
+func (c *Controller) APIDocs(ctx *gin.Context) {
+	ctx.Data(http.StatusOK, "text/html; charset=utf-8", appdocs.DocsHTML)
+}

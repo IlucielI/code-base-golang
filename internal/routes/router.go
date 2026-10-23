@@ -11,8 +11,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"code-base-golang/internal/config"
-	"code-base-golang/internal/controllers"
 	"code-base-golang/internal/middlewares"
+	"code-base-golang/internal/modules"
 	"code-base-golang/internal/pkg/strutil"
 )
 
@@ -54,8 +54,8 @@ type routeConfig struct {
 	Routes []routeItem `yaml:"routes"`
 }
 
-// NewRouter constructs the central Gin engine and wires controllers and middleware.
-func NewRouter(cfg config.Config, ctrls *controllers.Controllers, idempotencyStore ...middlewares.IdempotencyStore) *gin.Engine {
+// NewRouter constructs the central Gin engine and wires modules and middleware.
+func NewRouter(cfg config.Config, mods *modules.Modules, idempotencyStore ...middlewares.IdempotencyStore) *gin.Engine {
 	if cfg.AppEnv == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -85,13 +85,11 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, idempotencySto
 		mws.BodyLimit(),
 	)
 
-	// Central controllers container. A fully-wired controller (with a live
-	// service) is a hard precondition: failing fast here surfaces wiring bugs
-	// instead of silently constructing a controller with a nil service.
-	if ctrls == nil {
-		log.Fatal("router configuration error: controllers must not be nil")
+	// Central modules container verification.
+	if mods == nil {
+		log.Fatal("router configuration error: modules must not be nil")
 	}
-	ctrlsVal := reflect.ValueOf(ctrls)
+	moduleHandlers := mods.Handlers()
 
 	// Load and parse embedded YAML routes
 	var rCfg routeConfig
@@ -99,13 +97,23 @@ func NewRouter(cfg config.Config, ctrls *controllers.Controllers, idempotencySto
 		log.Fatalf("failed to parse routes.yaml: %v", err)
 	}
 
-	// Auto-dispatch routes dynamically via reflection (zero manual mapping)
+	// Auto-dispatch routes dynamically across registered modules via reflection (zero manual mapping)
 	for _, r := range rCfg.Routes {
 		methodName := strings.TrimSpace(r.Handler)
-		method := ctrlsVal.MethodByName(methodName)
+		var method reflect.Value
+		for _, h := range moduleHandlers {
+			if h == nil {
+				continue
+			}
+			m := reflect.ValueOf(h).MethodByName(methodName)
+			if m.IsValid() {
+				method = m
+				break
+			}
+		}
 
 		if !method.IsValid() {
-			log.Fatalf("route configuration error: method '%s' not found on Controllers for route %s %s", methodName, r.Method, r.Path)
+			log.Fatalf("route configuration error: method '%s' not found across modules for route %s %s", methodName, r.Method, r.Path)
 		}
 
 		fn, ok := method.Interface().(func(*gin.Context))

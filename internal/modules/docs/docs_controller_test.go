@@ -1,4 +1,4 @@
-package controllers_test
+package docs_test
 
 import (
 	"net/http"
@@ -9,7 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"code-base-golang/internal/config"
-	"code-base-golang/internal/controllers"
+	"code-base-golang/internal/modules/docs"
+	"code-base-golang/internal/pkg/controller"
 )
 
 func init() {
@@ -17,12 +18,14 @@ func init() {
 }
 
 func TestDocsController_OpenAPISpec(t *testing.T) {
-	ctrls := controllers.New(config.Config{}, nil)
+	base := controller.NewBase(config.Config{})
+	ctrl := docs.NewController(base)
+
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request, _ = http.NewRequest(http.MethodGet, "/openapi.yaml", nil)
 
-	ctrls.OpenAPISpec(c)
+	ctrl.OpenAPISpec(c)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", w.Code)
@@ -49,13 +52,14 @@ func TestDocsController_OpenAPISpec(t *testing.T) {
 }
 
 func TestDocsController_APIDocs(t *testing.T) {
-	ctrls := controllers.New(config.Config{}, nil)
+	base := controller.NewBase(config.Config{})
+	ctrl := docs.NewController(base)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request, _ = http.NewRequest(http.MethodGet, "/docs", nil)
 
-	ctrls.APIDocs(c)
+	ctrl.APIDocs(c)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", w.Code)
@@ -73,11 +77,4 @@ func TestDocsController_APIDocs(t *testing.T) {
 	if !strings.Contains(body, "data-url=\"/openapi.yaml\"") {
 		t.Errorf("expected body to contain data-url=\"/openapi.yaml\"")
 	}
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

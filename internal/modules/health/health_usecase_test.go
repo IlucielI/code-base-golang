@@ -5,19 +5,20 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/go-redis/redismock/v9"
-	gormPostgres "gorm.io/driver/postgres"
-	"gorm.io/gorm"
-
-	"code-base-golang/internal/adapters/redis"
 	"code-base-golang/internal/constants"
 	"code-base-golang/internal/modules/health"
-	"code-base-golang/internal/repositories"
 )
 
+type mockPinger struct {
+	err error
+}
+
+func (m *mockPinger) Ping(ctx context.Context) error {
+	return m.err
+}
+
 func TestUsecase_CheckHealth_EmptyDependencies(t *testing.T) {
-	u := health.NewUsecase(nil, nil, nil, nil)
+	u := health.NewUsecase(nil, nil, nil, nil, nil)
 	status := u.CheckHealth(context.Background())
 	if status.Database != constants.IntegrationStatusDisconnected {
 		t.Errorf("expected db disconnected, got %s", status.Database)
@@ -37,69 +38,55 @@ func TestUsecase_CheckHealth_EmptyDependencies(t *testing.T) {
 }
 
 func TestUsecase_CheckHealth_Connected(t *testing.T) {
-	sqlDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
-	if err != nil {
-		t.Fatalf("failed to open sqlmock: %v", err)
-	}
-	defer sqlDB.Close()
+	db := &mockPinger{err: nil}
+	rdb := &mockPinger{err: nil}
+	s3 := &mockPinger{err: nil}
+	rmq := &mockPinger{err: nil}
+	smtp := &mockPinger{err: nil}
 
-	mock.ExpectPing() // for gorm.Open
-
-	gormDB, err := gorm.Open(gormPostgres.New(gormPostgres.Config{
-		Conn: sqlDB,
-	}), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("failed to initialize gorm: %v", err)
-	}
-
-	rClient, rMock := redismock.NewClientMock()
-	rdb := redis.NewWithClient(rClient)
-	repo := repositories.New(gormDB, rdb)
-
-	u := health.NewUsecase(repo, nil, nil, nil)
-
-	mock.ExpectPing()
-	rMock.ExpectPing().SetVal("PONG")
-
+	u := health.NewUsecase(db, rdb, s3, rmq, smtp)
 	status := u.CheckHealth(context.Background())
+
 	if status.Database != constants.IntegrationStatusConnected {
 		t.Errorf("expected db connected, got %s", status.Database)
 	}
 	if status.Redis != constants.IntegrationStatusConnected {
 		t.Errorf("expected redis connected, got %s", status.Redis)
 	}
+	if status.S3 != constants.IntegrationStatusConnected {
+		t.Errorf("expected s3 connected, got %s", status.S3)
+	}
+	if status.RabbitMQ != constants.IntegrationStatusConnected {
+		t.Errorf("expected rabbitmq connected, got %s", status.RabbitMQ)
+	}
+	if status.SMTP != constants.IntegrationStatusConnected {
+		t.Errorf("expected smtp connected, got %s", status.SMTP)
+	}
 }
 
 func TestUsecase_CheckHealth_PingErrors(t *testing.T) {
-	sqlDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
-	if err != nil {
-		t.Fatalf("failed to open sqlmock: %v", err)
-	}
-	defer sqlDB.Close()
+	db := &mockPinger{err: errors.New("db ping failed")}
+	rdb := &mockPinger{err: errors.New("redis ping failed")}
+	s3 := &mockPinger{err: errors.New("s3 ping failed")}
+	rmq := &mockPinger{err: errors.New("rmq ping failed")}
+	smtp := &mockPinger{err: errors.New("smtp ping failed")}
 
-	mock.ExpectPing()
-
-	gormDB, err := gorm.Open(gormPostgres.New(gormPostgres.Config{
-		Conn: sqlDB,
-	}), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("failed to initialize gorm: %v", err)
-	}
-
-	rClient, rMock := redismock.NewClientMock()
-	rdb := redis.NewWithClient(rClient)
-	repo := repositories.New(gormDB, rdb)
-
-	u := health.NewUsecase(repo, nil, nil, nil)
-
-	mock.ExpectPing().WillReturnError(errors.New("db ping failed"))
-	rMock.ExpectPing().SetErr(errors.New("redis ping failed"))
-
+	u := health.NewUsecase(db, rdb, s3, rmq, smtp)
 	status := u.CheckHealth(context.Background())
+
 	if status.Database != constants.IntegrationStatusDisconnected {
 		t.Errorf("expected db disconnected on error, got %s", status.Database)
 	}
 	if status.Redis != constants.IntegrationStatusDisconnected {
 		t.Errorf("expected redis disconnected on error, got %s", status.Redis)
+	}
+	if status.S3 != constants.IntegrationStatusDisconnected {
+		t.Errorf("expected s3 disconnected on error, got %s", status.S3)
+	}
+	if status.RabbitMQ != constants.IntegrationStatusDisconnected {
+		t.Errorf("expected rabbitmq disconnected on error, got %s", status.RabbitMQ)
+	}
+	if status.SMTP != constants.IntegrationStatusDisconnected {
+		t.Errorf("expected smtp disconnected on error, got %s", status.SMTP)
 	}
 }

@@ -22,32 +22,33 @@ This document defines the architectural invariants, conventions, and workflows f
 
 ## 2. Architectural Invariants
 
-### 2.1. Clean Architecture & Decoupled Ports
-- Pure business logic lives strictly in `internal/usecases/`.
-- Usecases and workers **MUST NEVER** import or depend directly on concrete adapters (`internal/adapters/*`).
-- Always consume idiomatic Go consumer interfaces defined in domain packages:
-  - `usecases.FileStorage` (`internal/usecases/storage.go`)
-  - `usecases.EventPublisher` (`internal/usecases/publisher.go`)
-  - `usecases.EmailSender` (`internal/usecases/mailer.go`)
-  - `workers.EventSubscriber` (`internal/workers/subscriber.go`)
-- Concrete adapters (`database`, `redis`, `s3`, `rabbitmq`, `smtp`) live in `internal/adapters/` and are injected in `cmd/api/main.go`.
+### 2.1. Modular Clean Architecture (Domain Encapsulation)
+- Business features live strictly within self-contained modules under `internal/modules/<domain>/` (e.g., `internal/modules/health/`, `internal/modules/docs/`, `internal/modules/metrics/`).
+- Each module encapsulates its own domain concerns:
+  - `<domain>_controller.go`: HTTP transport handling (embeds `controller.Base`).
+  - `<domain>_usecase.go`: Pure business logic and domain orchestration.
+  - `<domain>_dto.go`: Input payloads (`*Request`, `*Query`) and output payloads (`*Data`).
+  - `<domain>_model.go`: Domain entities and persistence schemas (embedding `model.BaseModel`).
+  - `<domain>_validation.go`: Input validation logic using `ozzo-validation`.
+- **Decoupled Ports & Interfaces**: Modules and usecases **MUST NEVER** depend on concrete adapters (`internal/adapters/*`). They consume idiomatic Go consumer interfaces defined at the point of consumption (e.g. `health.Pinger`).
+- **Shared Infrastructure**: Cross-cutting reusable infrastructure lives under `internal/pkg/`:
+  - `internal/pkg/controller/`: Shared `controller.Base` with standardized error wrapping (`WrapError`) and response helpers (`RespondOK`, `RespondCreated`, `RespondEmpty`).
+  - `internal/pkg/response/`: Standard envelope types (`APIResponse[T]`, `BaseResponse`).
+  - `internal/pkg/pagination/`: Reusable pagination queries, metadata, and database filters (`Query`, `Meta`, `Filter`, `Sort`).
+  - `internal/pkg/model/`: Shared GORM entity base (`BaseModel`, `JSONMap`).
+  - `internal/pkg/apperror/`: Application error definitions and stack tracing.
 
-### 2.2. Declarative Route Configuration & Middlewares
+### 2.2. Declarative Route Configuration & Dynamic Dispatch
 - Routes are declared in `internal/routes/routes.yaml`.
-- The router maps handlers, HTTP methods, middlewares, and permissions from this YAML file without manual Go router wiring.
-- Register any new endpoints in `routes.yaml` rather than manually calling `router.GET(...)` in Go code.
-- **Route-Level Middlewares**: Middlewares defined in `routes.yaml` (e.g. `auth`, `basic_auth`, `anon_auth`, `optional_auth`) must have the direct signature `func(*gin.Context)` on `*Middlewares` (`internal/middlewares/`). The router converts YAML snake_case names to PascalCase methods via `strutil.ToPascalCase` (`internal/pkg/strutil`) and binds them without reflection call overhead.
+- The router (`internal/routes/router.go`) inspects the active modules registered in `internal/modules/modules.go` via `mods.Handlers()`.
+- Routes and handler methods (e.g., `handler: HealthCheck`) are dynamically mapped via reflection without manual Go router wiring or forwarding boilerplate.
+- **Route-Level Middlewares**: Middlewares defined in `routes.yaml` (e.g. `auth`, `basic_auth`, `anon_auth`, `optional_auth`) map directly to PascalCase methods on `*Middlewares` (`internal/middlewares/`).
 - **Granular Permissions**: Declared via `permission: "<resource>:<action>"` in `routes.yaml` and mapped directly to `mws.RequirePermission(r.Permission)`.
-- **API Documentation Protection**: The OpenAPI specification (`/openapi.yaml`) and interactive Scalar UI (`/docs`) are protected via `middlewares: [basic_auth]` declared directly in `routes.yaml`.
 
-### 2.3. Database Migrations
-- Migration files live in `migrations/` named `<timestamp>_<name>.up.sql` and `<timestamp>_<name>.down.sql`.
-- When `AUTO_MIGRATE=true`, migrations apply automatically on application/container startup after database connectivity is confirmed.
-
-### 2.4. Container Construction & Nil-Receiver Policy
-- Application container structs (`*Usecases`, `*Repositories`, `*Controllers`, `*Middlewares`, `*WorkerServer`) are guaranteed non-nil by construction at startup (`cmd/api/main.go`).
-- **NEVER** write defensive `if u == nil`, `if r == nil`, or `if w == nil` receiver checks on container methods or getters. If a container is nil, it represents a fatal initialization bug that must fail fast, not silently return nil.
-- Sub-adapter availability (e.g. optional RabbitMQ broker or Redis connection) should be guarded at the field level (e.g. `if r.rdb == nil` or `if w.sub == nil`), not at the container pointer level.
+### 2.3. Central Modules Registry & Nil-Receiver Policy
+- Application modules are aggregated in `*modules.Modules` (`internal/modules/modules.go`) initialized at startup (`cmd/api/main.go`).
+- Container structs are guaranteed non-nil by construction at startup.
+- **NEVER** write defensive `if m == nil` or `if c == nil` receiver checks on core container methods. Sub-adapter availability (e.g. optional RabbitMQ or Redis connection) should be guarded at the field level, not at the container pointer level.
 
 ---
 
@@ -77,167 +78,63 @@ This document defines the architectural invariants, conventions, and workflows f
 
 ## 4. Core Coding Conventions
 
-0. **File Naming Suffixes & Constants Conventions (MANDATORY)**:
-   - Files in the following packages **MUST** carry a role suffix so each file's layer is unambiguous. This applies to every file in the package, including shared/base ones (e.g. the response envelope and base model), for consistency.
-     - `internal/dtos/` → `*_dto.go` (e.g. `recording_dto.go`, `response_dto.go`, `pagination_dto.go`)
-     - `internal/models/` → `*_model.go` (e.g. `recording_model.go`, `base_model.go`)
-     - `internal/validations/` → `*_validation.go` (e.g. `recording_validation.go`)
-   - Test files append the suffix before `_test.go` (e.g. `recording_dto_test.go`, `base_model_test.go`).
-   - Rationale: these layers hold many small per-entity files; the suffix keeps the editor's file list self-describing and prevents name collisions across layers (e.g. a `recording` DTO vs. a `recording` model).
-   - **No suffix elsewhere.** Other packages name files by topic, not role:
-     - `internal/constants/` uses one file per topic/domain (`error.go`, `response.go`, `worker.go`, `auth.go`, `logger.go`, `<domain>.go`); do **not** create `*_constant.go` (it stutters with the package name).
-     - Magic strings/numbers for token types (`constants.TokenType*`), user roles (`constants.Role*`), and log levels (`constants.LogLevel*`) **MUST** be defined in `internal/constants/` rather than hardcoded in services, middlewares, or handlers.
+0. **Module File Naming Suffixes & Organization**:
+   - Within each module `internal/modules/<domain>/`:
+     - `<domain>_controller.go`: HTTP handler methods.
+     - `<domain>_usecase.go`: Business logic implementation.
+     - `<domain>_dto.go`: Request and response DTO structs.
+     - `<domain>_model.go`: Domain entity and GORM database model.
+     - `<domain>_validation.go`: ozzo-validation rules.
+   - Shared packages in `internal/pkg/`:
+     - `controller/`: Shared controller base methods (`base.go`).
+     - `response/`: Response envelopes (`response.go`).
+     - `pagination/`: Pagination structures (`pagination.go`).
+     - `model/`: Base models (`base_model.go`).
 0a. **DTO Naming & Layering (MANDATORY)**:
-   - **Struct naming** — two roles only:
-     - Input payloads: `<Name>Request` for JSON bodies, `<Name>Query` for query-string/list params (the latter usually carries `SetDefaults()`).
-     - Output payloads: `<Name>Data` for any struct returned to the client in the response envelope's `data` field (matches `APIResponse[T].Data`, e.g. `APIResponse[HealthData]`). Nested sub-structs used only inside a `*Data` payload need no suffix (e.g. a `HealthServices` embedded in `HealthData`).
-   - **Layering — who may use DTOs:**
-     - `controllers` consume `*Request`/`*Query` (bind + validate) and emit `*Data`.
-     - `usecases` accept `*Request`/`*Query` as use-case input and build `*Data` from domain models.
-     - `repositories` **MUST NEVER** import `internal/dtos`. They operate on `internal/models` entities plus primitives or local filter types (e.g. a `RoleFilter` defined in `repositories`). Transport shapes never leak into the persistence layer.
-0b. **Repository Filter & Pagination Conventions (MANDATORY)**:
-   - Query filters used by repositories live directly inside `internal/repositories/` — **NEVER** in a sub-package (e.g. no `repositories/filters/`).
-   - Repository filters are **pure data structs without logic or calculation methods**. Transport-to-persistence math (such as calculating offset, default limits, or metadata) belongs strictly in `internal/dtos/` and `internal/usecases/`.
-   - Common pagination and sorting parameters use shared types in `internal/repositories/filter.go`:
-     - `repositories.PaginationFilter` (`Limit int`, `Offset int`)
-     - `repositories.SortFilter` (`SortBy string`, `Order string`)
-   - Reusable pagination query and metadata live in `internal/dtos/pagination_dto.go`:
-     - `dtos.PaginationQuery` (with `SetDefaults()` and `Offset()`)
-     - `dtos.PaginationMeta` (with `CalculateTotalPages()` and `NewPaginationMeta(page, limit, total)`)
-   - Domain-specific filter structs live in their respective repository files (e.g. `UserFilter` in `internal/repositories/user_repository.go`) embedding `PaginationFilter` and/or `SortFilter`.
-   - Usecases convert transport queries (`dtos.<Entity>ListQuery`) into `repositories.<Entity>Filter` before invoking the repository:
+   - Input payloads: `<Name>Request` for JSON bodies, `<Name>Query` for query params (usually carries `SetDefaults()`).
+   - Output payloads: `<Name>Data` for structs returned in `response.APIResponse[T].Data`.
+   - Controllers bind and validate `<Name>Request` / `<Name>Query` and emit `<Name>Data`.
+   - Usecases accept `<Name>Request` / `<Name>Query` and return `<Name>Data`.
+0b. **Shared Controller Base (MANDATORY)**:
+   - Every domain controller **MUST** embed `controller.Base` (`internal/pkg/controller/base.go`):
      ```go
-     filter := repositories.UserFilter{
-         PaginationFilter: repositories.PaginationFilter{
-             Limit:  query.Limit,
-             Offset: query.Offset(),
-         },
-         Search: query.Search,
+     type Controller struct {
+         controller.Base
+         uc *Usecase
      }
      ```
-0c. **External DTOs & Anti-Corruption Layer (MANDATORY)**:
-   - When integrating with external microservices, third-party APIs, or external HTTP/gRPC services (e.g. payment gateways, notification providers, remote microservices):
-     - **Location**: External request and response payload structs live **strictly inside their respective adapter package** (e.g. `internal/adapters/<provider>/dto.go`), **NEVER** in `internal/dtos/` (which is reserved exclusively for inbound HTTP client transport).
-     - **Anti-Corruption Layer (ACL)**: Adapters isolate external schemas from contaminating our domain model:
-       - Port interfaces in `internal/usecases/` speak exclusively in domain terms (accepting domain entities, models, or primitives).
-       - The concrete adapter in `internal/adapters/<provider>/` translates domain parameters into external request DTOs, performs the network call, and translates the external response DTO back into domain entities/models/primitives before returning to the usecase.
-       - Usecases and domain models **MUST NEVER** import or reference external DTOs.
-       - If an external microservice or third-party API changes its JSON schema, only the adapter's local DTO and mapper change; core business logic remains completely untouched.
-0d. **Domain Entities vs. Persistence Models (Pragmatic Approach)**:
-   - Structs in `internal/models/*_model.go` serve a dual role as both the **Domain Entity** (carrying identity via `BaseModel`, business attributes, and state methods) and the **Persistence Model** (carrying `gorm:"..."` tags for SQL mapping).
-   - Do not create separate duplicate `entities/` and `models/` packages. Combining them is idiomatic in Go and avoids redundant struct-copying boilerplate.
-   - Entities are the internal domain currency: passed freely between usecases and repositories (`usecases` $\leftrightarrow$ `repositories`, `usecases` $\leftrightarrow$ `usecases`).
-   - Entities **MUST NEVER** leak to HTTP clients directly; usecases must map them into `*Data` DTOs before returning to controllers.
-1. **Standard Error Envelope & Error Handling by Layer**:
+   - Standard response methods provided by `controller.Base`:
+     - `c.RespondOK(ctx, "message", data)`
+     - `c.RespondCreated(ctx, "message", data)`
+     - `c.RespondEmpty(ctx, "message")`
+     - `c.WrapError(ctx, err)`
+1. **Error Handling by Layer**:
    - Use `pkg/apperror.AppError` for domain and HTTP errors.
-   - Format all HTTP responses using the standardized envelope in `internal/dtos/response_dto.go` (`status`, `code`, `message`, `data`, `errors`, `timestamp`).
-   - **Repositories return raw errors.** A repository returns the underlying driver/GORM error unchanged (e.g. `return nil, err`, propagating `gorm.ErrRecordNotFound`). Repositories **MUST NOT** import `constants`/`apperror` or assign HTTP status — persistence does not know about transport concerns.
-   - **Usecases translate errors into `AppError`.** The usecase layer is where raw errors become domain errors. Map expected conditions to the right template (e.g. `errors.Is(err, gorm.ErrRecordNotFound)` → `constants.ErrNotFound`, a 4xx that carries no stack) and wrap everything unexpected as a 5xx: `return constants.ErrInternalServerError.Wrap(err)`.
-   - **Why wrap in the usecase, not the controller.** `AppError.Wrap` captures a Go stack trace for 5xx errors at the *first* wrap point. Wrapping in the usecase makes the trace point at the usecase line closest to the failing repository call. If a raw error bubbles all the way up, the controller's `wrapError` wraps it there instead and the stack points at the controller — much less useful. Go cannot reconstruct the original repository line from a bare error, so the usecase call site is the most useful anchor; do not add `AppError` wrapping inside repositories to chase it.
-   - The controller's `wrapError` is the final safety net: it records the error (and any captured stack) on the active OpenTelemetry span, and in development logs the stack for local debugging.
-   - Example (usecase):
-     ```go
-     role, err := u.repo.FindRoleByID(ctx, id)
-     if err != nil {
-         if errors.Is(err, gorm.ErrRecordNotFound) {
-             return nil, constants.ErrNotFound.WithMessage("role not found")
-         }
-         return nil, constants.ErrInternalServerError.Wrap(err) // stack captured here
-     }
-     ```
+   - Format all HTTP responses using `response.APIResponse` and `response.BaseResponse`.
+   - Repository/adapter calls return raw errors; usecases map expected errors (e.g. `gorm.ErrRecordNotFound` $\rightarrow$ `constants.ErrNotFound`) and wrap unexpected failures with `constants.ErrInternalServerError.Wrap(err)`.
+   - Controllers invoke `c.WrapError(ctx, err)` which automatically records traces on OpenTelemetry spans and formats standardized fail/error responses.
 2. **Context & Metadata Propagation**:
-   - Always accept `context.Context` as the first parameter in repository, usecase, and external adapter methods.
+   - Always accept `context.Context` as the first parameter in repository, usecase, and adapter methods.
    - Extract client metadata using `pkg/ctxmeta` (`RequestID`, `ClientIP`, `UserAgent`).
-3. **Request Validation (MANDATORY — ozzo-validation, in `internal/validations/`)**:
-   - All request validation **MUST** use `ozzo-validation` (`github.com/go-ozzo/ozzo-validation/v4`) and **MUST** live in `internal/validations/<entity>_validation.go` — **never** inside `internal/dtos/`.
-   - DTOs (`internal/dtos/*_dto.go`) contain **only** struct definitions, JSON/form/query tags, and an optional `SetDefaults()` method for pagination/query fallbacks. They **MUST NOT** carry a `Validate()` method or any validation rules.
-   - Expose validation as a standalone function per request type: `func Validate<Name>(req *dtos.<Name>) error` that returns `validation.ValidateStruct(req, validation.Field(...), ...)`. The `validations` package imports `dtos`; `dtos` **MUST NOT** import `validations` (avoids an import cycle).
-   - Controllers invoke validation explicitly; business logic never lives in the controller. The canonical handler flow is:
-     ```go
-     func (c *Controllers) ListRoles(ctx *gin.Context) {
-         var query dtos.RoleListQuery
-         if err := ctx.ShouldBindQuery(&query); err != nil { // or ShouldBindJSON for bodies
-             c.wrapError(ctx, constants.ErrBadRequest.WithMessage("invalid query parameters"))
-             return
-         }
-         query.SetDefaults()
-         if err := validations.ValidateRoleListQuery(&query); err != nil {
-             c.wrapError(ctx, constants.ErrBadRequest.WithMessage(err.Error()))
-             return
-         }
-         resp, err := c.uc.ListRoles(ctx.Request.Context(), query)
-         if err != nil {
-             c.wrapError(ctx, err)
-             return
-         }
-         c.respondOK(ctx, "Roles retrieved successfully", resp)
-     }
-     ```
-   - Example validation definition in `internal/validations/role_validation.go`:
-     ```go
-     func ValidateRoleListQuery(q *dtos.RoleListQuery) error {
-         return validation.ValidateStruct(q,
-             validation.Field(&q.Page, validation.Min(1)),
-             validation.Field(&q.Limit, validation.Min(1), validation.Max(100)),
-             validation.Field(&q.Search, validation.Length(0, 100)),
-         )
-     }
-     ```
-4. **Resource Safety**:
-   - Always ensure connections, response bodies, and lock releases are deferred cleanly (`defer`).
-   - Workers and async subscribers must handle graceful cancellation via `ctx.Done()`.
-5. **Templates & Large Text Content (MANDATORY)**:
-   - HTML, email bodies, long prompts, or any multi-line markup/text block **MUST NOT** be embedded as string literals inside `.go` files. Store them as template files under `internal/templates/<category>/` (e.g. `emails/`, `prompts/`).
-   - Use a **consistent `.tmpl` extension** so the embed glob never silently skips a file: `*.html.tmpl` for HTML, `*.txt.tmpl` for plain text/prompts.
-   - Load templates with `//go:embed` and render them through Go's template engine. The `.go` file holds only the embed directive, the parsed-template variables, the data structs, and thin render functions — never the content itself.
-   - Choose the engine by output type for safety: **`html/template` for anything rendered as HTML** (it auto-escapes and prevents injection/XSS), and `text/template` only for non-HTML output (plain-text emails, LLM prompts).
-   - Example:
-     ```go
-     //go:embed emails/*.tmpl
-     var emailFS embed.FS
-
-     var emailHTML = htmltemplate.Must(htmltemplate.ParseFS(emailFS, "emails/*.html.tmpl"))
-
-     func RenderWelcomeEmail(data WelcomeEmailData) (string, error) {
-         var buf bytes.Buffer
-         if err := emailHTML.ExecuteTemplate(&buf, "welcome.html.tmpl", data); err != nil {
-             return "", fmt.Errorf("execute welcome.html.tmpl: %w", err)
-         }
-         return strings.TrimSpace(buf.String()), nil
-     }
-     ```
+3. **Request Validation (ozzo-validation)**:
+   - Request validations live in `<domain>_validation.go` inside the domain module.
+   - Expose validation as a standalone function: `func Validate<Name>(req *<Name>Request) error`.
 
 ---
 
 ## 5. Development Workflows for Agents
 
-### Adding a New Entity & CRUD Feature
-1. **Migration**: Run `make migrate-create name=create_<entity>_table` and write `.up.sql` & `.down.sql`.
-2. **Model**: Create entity struct embedding `models.BaseModel` in `internal/models/<entity>_model.go`.
-3. **Repository**: Define interface and GORM queries in `internal/repositories/`.
-4. **DTO**: Define request/response payload structs in `internal/dtos/<entity>_dto.go` (struct + tags only; add `SetDefaults()` for list/query DTOs). No `Validate()` method here.
-5. **Validation**: Define `func Validate<Name>(req *dtos.<Name>) error` using `ozzo-validation` in `internal/validations/<entity>_validation.go`.
-6. **Usecase**: Define interface & business implementation in `internal/usecases/`.
-7. **Controller**: Add handler method in `internal/controllers/` following the flow: bind (`ShouldBindJSON`/`ShouldBindQuery`) → `SetDefaults()` → `validations.Validate<Name>(&req)` → usecase call → `respondOK`/`respondCreated`.
-8. **Routes**: Register path, HTTP method, and auth middlewares in `internal/routes/routes.yaml`.
-9. **Unit Tests**: Add tests alongside code using Go's standard `testing` package.
-
-### Adding an Asynchronous Event / Worker
-1. Define the queue message payload struct in `internal/queue/`.
-2. Publish the event via `usecases.EventPublisher.Publish(ctx, exchange, routingKey, body)`.
-3. Add the handler method in `internal/workers/` and subscribe it inside `WorkerServer.RegisterWorker` with `w.sub.MustSubscribe(constants.Topic<Name>, w.Handle<Name>)`.
-
-**Worker handler rules (keep handlers thin, no boilerplate):**
-- **Never** repeat the parse → log → run-service → map-to-ack sequence in each handler. Route every handler through the shared generic `handleMessage[T]` helper in `worker.go`, which decodes the payload, logs the start/finish/error lifecycle uniformly, and returns the ack/nack bool:
-  ```go
-  func (w *WorkerServer) HandleUserRegistered(ctx context.Context, msg []byte) bool {
-      return handleMessage(ctx, "user.registered", msg, w.uc.NotifyUserRegistered)
-  }
-  ```
-  The `process` function passed in is typically a usecase method with signature `func(context.Context, T) error`; business logic stays in the usecase, never in the handler.
-- A handler returns `true` to ACK and `false` to NACK (routing the message to the DLQ/retry). Let `handleMessage` derive this from the service error — do not hand-roll ack logic.
-- Always honour the broker-provided `ctx` (for cancellation/tracing); do not create a fresh `context.Background()` inside handlers.
-- **One handler file per domain**, not one growing `worker.go`. `worker.go` holds only `WorkerServer`, `New`, `RegisterWorker` and the shared helper; put domain handlers in `internal/workers/<domain>_worker.go` (e.g. `recording_worker.go`). `RegisterWorker` stays the single registry of all subscriptions, grouped by domain with comments.
+### Adding a New Modular Feature
+1. **Migration**: Run `make migrate-create name=create_<domain>_table` and write `.up.sql` & `.down.sql`.
+2. **Module Directory**: Create `internal/modules/<domain>/`.
+3. **Model**: Define entity struct embedding `model.BaseModel` in `<domain>_model.go`.
+4. **DTO**: Define payload structs in `<domain>_dto.go`.
+5. **Validation**: Define validation functions in `<domain>_validation.go`.
+6. **Usecase**: Define business logic in `<domain>_usecase.go`.
+7. **Controller**: Define handler struct embedding `controller.Base` in `<domain>_controller.go`.
+8. **Module Registry**: Register the new controller in `internal/modules/modules.go` and include in `Handlers() []any`.
+9. **Routes**: Register path, HTTP method, and middleware in `internal/routes/routes.yaml`.
+10. **Unit Tests**: Add tests alongside code (`<domain>_controller_test.go`, `<domain>_usecase_test.go`).
 
 ---
 

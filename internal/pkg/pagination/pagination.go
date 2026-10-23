@@ -1,20 +1,20 @@
-package dtos
+package pagination
 
 // Default and maximum limits for pagination queries.
 const (
-	DefaultPaginationLimit = 20
-	MaxPaginationLimit     = 100
+	DefaultLimit = 20
+	MaxLimit     = 100
 )
 
-// PaginationQuery represents standard query parameters for pagination.
-type PaginationQuery struct {
+// Query represents standard HTTP query parameters for pagination.
+type Query struct {
 	Page  int `form:"page" json:"page"`
 	Limit int `form:"limit" json:"limit"`
 }
 
 // SetDefaults applies default values if Page or Limit are missing or invalid.
 // An optional custom default limit can be supplied.
-func (p *PaginationQuery) SetDefaults(defaultLimit ...int) {
+func (p *Query) SetDefaults(defaultLimit ...int) {
 	if p.Page < 1 {
 		p.Page = 1
 	}
@@ -22,24 +22,24 @@ func (p *PaginationQuery) SetDefaults(defaultLimit ...int) {
 		if len(defaultLimit) > 0 && defaultLimit[0] > 0 {
 			p.Limit = defaultLimit[0]
 		} else {
-			p.Limit = DefaultPaginationLimit
+			p.Limit = DefaultLimit
 		}
 	}
-	if p.Limit > MaxPaginationLimit {
-		p.Limit = MaxPaginationLimit
+	if p.Limit > MaxLimit {
+		p.Limit = MaxLimit
 	}
 }
 
 // Offset calculates the database offset based on Page and Limit.
-func (p *PaginationQuery) Offset() int {
+func (p *Query) Offset() int {
 	if p.Page < 1 {
 		return 0
 	}
 	return (p.Page - 1) * p.Limit
 }
 
-// PaginationMeta encapsulates pagination metadata returned to clients.
-type PaginationMeta struct {
+// Meta encapsulates pagination metadata returned to clients.
+type Meta struct {
 	CurrentPage int   `json:"current_page"`
 	PageSize    int   `json:"page_size"`
 	TotalItems  int64 `json:"total_items"`
@@ -54,12 +54,24 @@ func CalculateTotalPages(total int64, limit int) int {
 	return int((total + int64(limit) - 1) / int64(limit))
 }
 
-// NewPaginationMeta creates a populated PaginationMeta instance.
-func NewPaginationMeta(page, limit int, total int64) PaginationMeta {
-	return PaginationMeta{
+// NewMeta creates a populated Meta instance.
+func NewMeta(page, limit int, total int64) Meta {
+	return Meta{
 		CurrentPage: page,
 		PageSize:    limit,
 		TotalItems:  total,
 		TotalPages:  CalculateTotalPages(total, limit),
 	}
+}
+
+// Filter encapsulates database pagination parameters (Limit and Offset).
+type Filter struct {
+	Limit  int
+	Offset int
+}
+
+// Sort encapsulates database sorting parameters.
+type Sort struct {
+	SortBy string // e.g. "created_at"
+	Order  string // "asc" or "desc"
 }
