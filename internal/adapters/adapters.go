@@ -10,10 +10,10 @@ import (
 	"code-base-golang/internal/adapters/s3"
 	"code-base-golang/internal/adapters/smtp"
 	"code-base-golang/internal/config"
-	"code-base-golang/internal/pkg/controller"
+	"code-base-golang/internal/pkg/handler"
 )
 
-// Adapters groups all shared infrastructure adapters and application base controller.
+// Adapters groups all shared infrastructure adapters and application base handler.
 type Adapters struct {
 	Config    config.Config
 	DB        *database.Postgres
@@ -21,7 +21,7 @@ type Adapters struct {
 	Storage   *s3.S3
 	Publisher *rabbitmq.RabbitMQ
 	Mailer    *smtp.SMTP
-	Base      controller.Base
+	Base      handler.Base
 }
 
 // New initializes and returns a container of all configured infrastructure adapters.
@@ -40,7 +40,7 @@ func New(
 		Storage:   storage,
 		Publisher: publisher,
 		Mailer:    mailer,
-		Base:      controller.NewBase(cfg),
+		Base:      handler.NewBase(cfg),
 	}
 }
 

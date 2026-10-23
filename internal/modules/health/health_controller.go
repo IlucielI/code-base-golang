@@ -6,18 +6,18 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/pkg/controller"
+	"code-base-golang/internal/pkg/handler"
 )
 
 // Controller handles HTTP endpoints for the health check domain.
-// It embeds controller.Base to inherit standard response envelopes and error handlers.
+// It embeds handler.Base to inherit standard response envelopes and error handlers.
 type Controller struct {
-	controller.Base
+	handler.Base
 	uc *Usecase
 }
 
 // NewController creates a new health domain controller instance.
-func NewController(base controller.Base, uc *Usecase) *Controller {
+func NewController(base handler.Base, uc *Usecase) *Controller {
 	return &Controller{
 		Base: base,
 		uc:   uc,

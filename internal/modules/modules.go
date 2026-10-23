@@ -5,7 +5,7 @@ import (
 	"code-base-golang/internal/modules/docs"
 	"code-base-golang/internal/modules/health"
 	"code-base-golang/internal/modules/metrics"
-	"code-base-golang/internal/pkg/controller"
+	"code-base-golang/internal/pkg/handler"
 	"code-base-golang/internal/workers"
 )
 
@@ -26,8 +26,8 @@ func New(adp *adapters.Adapters) *Modules {
 }
 
 // Handlers returns a list of all active module controllers for dynamic route dispatching.
-func (m *Modules) Handlers() []controller.Controller {
-	return []controller.Controller{
+func (m *Modules) Handlers() []handler.Handler {
+	return []handler.Handler{
 		m.Health,
 		m.Docs,
 		m.Metrics,

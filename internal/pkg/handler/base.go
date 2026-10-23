@@ -1,4 +1,4 @@
-package controller
+package handler
 
 import (
 	"log"
@@ -15,21 +15,21 @@ import (
 	"code-base-golang/internal/pkg/response"
 )
 
-// Controller represents the interface satisfied by all application domain controllers.
-type Controller interface {
-	isController()
+// Handler represents the interface satisfied by all application domain handlers.
+type Handler interface {
+	isHandler()
 }
 
-// Base provides shared response formatting and error handling helpers for all controllers.
+// Base provides shared response formatting and error handling helpers for all handlers.
 type Base struct {
 	Cfg       config.Config
 	StartedAt time.Time
 }
 
-// isController is an unexported marker method automatically inherited by structs embedding Base.
-func (Base) isController() {}
+// isHandler is an unexported marker method automatically inherited by structs embedding Base.
+func (Base) isHandler() {}
 
-// NewBase constructs a new Base controller instance.
+// NewBase constructs a new Base handler instance.
 func NewBase(cfg config.Config) Base {
 	return Base{
 		Cfg:       cfg,

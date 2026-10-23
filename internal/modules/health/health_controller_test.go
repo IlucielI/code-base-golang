@@ -10,14 +10,14 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/pkg/controller"
+	"code-base-golang/internal/pkg/handler"
 	"code-base-golang/internal/pkg/response"
 )
 
 func TestController_HealthCheck(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := config.Config{Version: "1.0.0", GitHash: "abcdef"}
-	base := controller.NewBase(cfg)
+	base := handler.NewBase(cfg)
 	uc := NewUsecase(&mockChecker{})
 	ctrl := NewController(base, uc)
 

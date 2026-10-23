@@ -1,4 +1,4 @@
-package controller_test
+package handler
 
 import (
 	"encoding/json"
@@ -12,13 +12,12 @@ import (
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
 	"code-base-golang/internal/pkg/apperror"
-	"code-base-golang/internal/pkg/controller"
 	"code-base-golang/internal/pkg/response"
 )
 
 func TestBase_WrapError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	base := controller.NewBase(config.Config{})
+	base := NewBase(config.Config{})
 
 	t.Run("nil error does nothing", func(t *testing.T) {
 		w := httptest.NewRecorder()
@@ -67,7 +66,7 @@ func TestBase_WrapError(t *testing.T) {
 
 func TestBase_RespondHelpers(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	base := controller.NewBase(config.Config{})
+	base := NewBase(config.Config{})
 
 	t.Run("RespondOK sends 200 OK", func(t *testing.T) {
 		w := httptest.NewRecorder()

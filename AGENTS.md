@@ -25,7 +25,7 @@ This document defines the architectural invariants, conventions, and workflows f
 ### 2.1. Modular Clean Architecture (Domain Encapsulation)
 - Business features live strictly within self-contained modules under `internal/modules/<domain>/` (e.g., `internal/modules/health/`, `internal/modules/docs/`, `internal/modules/metrics/`).
 - Each module encapsulates its own domain concerns:
-  - `<domain>_controller.go`: HTTP transport handling (embeds `controller.Base`).
+  - `<domain>_controller.go`: HTTP transport handling (embeds `handler.Base`).
   - `<domain>_consumer.go`: Background queue message handling (implements `workers.Consumer`, optional).
   - `<domain>_module.go`: Module provider exporting `Register(adp *adapters.Adapters) *Controller`.
   - `<domain>_usecase.go`: Pure business logic and domain orchestration.
@@ -35,7 +35,7 @@ This document defines the architectural invariants, conventions, and workflows f
 - **Decoupled Ports & Interfaces**: Modules and usecases **MUST NEVER** depend on concrete adapters (`internal/adapters/*`). They consume idiomatic Go consumer interfaces defined at the point of consumption (e.g. `health.Pinger`).
 - **Shared Infrastructure**: Cross-cutting reusable infrastructure lives under `internal/pkg/` (with adapters aggregated in `internal/adapters/adapters.go`):
   - `internal/adapters/`: Infrastructure adapters and central container (`adapters.Adapters`).
-  - `internal/pkg/controller/`: Shared `controller.Base` with standardized error wrapping (`WrapError`) and response helpers (`RespondOK`, `RespondCreated`, `RespondEmpty`).
+  - `internal/pkg/handler/`: Shared `handler.Base` with standardized error wrapping (`WrapError`) and response helpers (`RespondOK`, `RespondCreated`, `RespondEmpty`).
   - `internal/pkg/response/`: Standard envelope types (`APIResponse[T]`, `BaseResponse`).
   - `internal/pkg/pagination/`: Reusable pagination queries, metadata, and database filters (`Query`, `Meta`, `Filter`, `Sort`).
   - `internal/pkg/model/`: Shared GORM entity base (`BaseModel`, `JSONMap`).
@@ -89,8 +89,8 @@ This document defines the architectural invariants, conventions, and workflows f
      - `<domain>_dto.go`: Request and response DTO structs.
      - `<domain>_model.go`: Domain entity and GORM database model.
      - `<domain>_validation.go`: ozzo-validation rules.
-   - Shared packages in `internal/pkg/`:
-     - `controller/`: Shared controller base methods (`base.go`).
+    - Shared packages in `internal/pkg/`:
+     - `handler/`: Shared handler base methods (`base.go`).
      - `response/`: Response envelopes (`response.go`).
      - `pagination/`: Pagination structures (`pagination.go`).
      - `model/`: Base models (`base_model.go`).
@@ -99,15 +99,15 @@ This document defines the architectural invariants, conventions, and workflows f
    - Output payloads: `<Name>Data` for structs returned in `response.APIResponse[T].Data`.
    - Controllers bind and validate `<Name>Request` / `<Name>Query` and emit `<Name>Data`.
    - Usecases accept `<Name>Request` / `<Name>Query` and return `<Name>Data`.
-0b. **Shared Controller Base (MANDATORY)**:
-   - Every domain controller **MUST** embed `controller.Base` (`internal/pkg/controller/base.go`):
+0b. **Shared Handler Base (MANDATORY)**:
+   - Every domain controller **MUST** embed `handler.Base` (`internal/pkg/handler/base.go`):
      ```go
      type Controller struct {
-         controller.Base
+         handler.Base
          uc *Usecase
      }
      ```
-   - Standard response methods provided by `controller.Base`:
+   - Standard response methods provided by `handler.Base`:
      - `c.RespondOK(ctx, "message", data)`
      - `c.RespondCreated(ctx, "message", data)`
      - `c.RespondEmpty(ctx, "message")`

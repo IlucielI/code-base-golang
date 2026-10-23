@@ -6,16 +6,16 @@ import (
 	"github.com/gin-gonic/gin"
 
 	appdocs "code-base-golang/docs"
-	"code-base-golang/internal/pkg/controller"
+	"code-base-golang/internal/pkg/handler"
 )
 
 // Controller handles API documentation endpoints.
 type Controller struct {
-	controller.Base
+	handler.Base
 }
 
 // NewController creates a new docs controller instance.
-func NewController(base controller.Base) *Controller {
+func NewController(base handler.Base) *Controller {
 	return &Controller{Base: base}
 }
 
