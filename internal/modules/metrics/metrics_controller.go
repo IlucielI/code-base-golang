@@ -3,18 +3,15 @@ package metrics
 import (
 	"github.com/gin-gonic/gin"
 
-	"code-base-golang/internal/pkg/handler"
 	pkgmetrics "code-base-golang/internal/pkg/metrics"
 )
 
 // Controller handles Prometheus metrics scraping endpoint.
-type Controller struct {
-	handler.Base
-}
+type Controller struct{}
 
 // NewController creates a new metrics controller instance.
-func NewController(base handler.Base) *Controller {
-	return &Controller{Base: base}
+func NewController() *Controller {
+	return &Controller{}
 }
 
 // PrometheusMetrics serves Prometheus metrics for scraping.

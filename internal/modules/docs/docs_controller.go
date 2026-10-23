@@ -6,17 +6,14 @@ import (
 	"github.com/gin-gonic/gin"
 
 	appdocs "code-base-golang/docs"
-	"code-base-golang/internal/pkg/handler"
 )
 
 // Controller handles API documentation endpoints.
-type Controller struct {
-	handler.Base
-}
+type Controller struct{}
 
 // NewController creates a new docs controller instance.
-func NewController(base handler.Base) *Controller {
-	return &Controller{Base: base}
+func NewController() *Controller {
+	return &Controller{}
 }
 
 // OpenAPISpec serves the raw OpenAPI 3.0 specification in YAML format.

@@ -5,6 +5,6 @@ import (
 )
 
 // Register initializes the metrics module using the shared infrastructure adapters.
-func Register(adp *adapters.Adapters) *Controller {
-	return NewController(adp.Base)
+func Register(_ *adapters.Adapters) *Controller {
+	return NewController()
 }

@@ -5,21 +5,20 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/constants"
-	"code-base-golang/internal/pkg/handler"
 	"code-base-golang/internal/pkg/response"
 )
 
 func TestController_HealthCheck(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := config.Config{Version: "1.0.0", GitHash: "abcdef"}
-	base := handler.NewBase(cfg)
 	uc := NewUsecase(&mockChecker{})
-	ctrl := NewController(base, uc)
+	ctrl := NewController(cfg, time.Now(), uc)
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)

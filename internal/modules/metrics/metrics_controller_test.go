@@ -7,15 +7,11 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-
-	"code-base-golang/internal/config"
-	"code-base-golang/internal/pkg/handler"
 )
 
 func TestController_PrometheusMetrics(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	base := handler.NewBase(config.Config{})
-	ctrl := NewController(base)
+	ctrl := NewController()
 
 	w := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(w)

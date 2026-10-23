@@ -7,9 +7,6 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-
-	"code-base-golang/internal/config"
-	"code-base-golang/internal/pkg/handler"
 )
 
 func init() {
@@ -17,8 +14,7 @@ func init() {
 }
 
 func TestDocsController_OpenAPISpec(t *testing.T) {
-	base := handler.NewBase(config.Config{})
-	ctrl := NewController(base)
+	ctrl := NewController()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -51,8 +47,7 @@ func TestDocsController_OpenAPISpec(t *testing.T) {
 }
 
 func TestDocsController_APIDocs(t *testing.T) {
-	base := handler.NewBase(config.Config{})
-	ctrl := NewController(base)
+	ctrl := NewController()
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
