@@ -5,11 +5,13 @@ import (
 
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/modules"
+	"code-base-golang/internal/pkg/app"
 )
 
 func TestModules_New(t *testing.T) {
 	cfg := config.Config{AppName: "test-app", Version: "1.0.0"}
-	mods := modules.New(cfg, nil, nil, nil, nil, nil)
+	appCtx := app.NewContext(cfg, nil, nil, nil, nil, nil)
+	mods := modules.New(appCtx)
 
 	if mods == nil {
 		t.Fatal("expected non-nil modules")

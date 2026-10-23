@@ -1,38 +1,25 @@
 package modules
 
 import (
-	"code-base-golang/internal/config"
 	"code-base-golang/internal/modules/docs"
 	"code-base-golang/internal/modules/health"
 	"code-base-golang/internal/modules/metrics"
-	"code-base-golang/internal/pkg/controller"
+	"code-base-golang/internal/pkg/app"
 )
 
-// Modules is the central application registry aggregating all domain modules.
+// Modules is the central application registry aggregating active domain modules.
 type Modules struct {
-	Base    controller.Base
 	Health  *health.Controller
 	Docs    *docs.Controller
 	Metrics *metrics.Controller
 }
 
-// New initializes and wires all application domain modules with infrastructure adapters.
-func New(
-	cfg config.Config,
-	db health.Pinger,
-	redis health.Pinger,
-	storage health.Pinger,
-	publisher health.Pinger,
-	mailer health.Pinger,
-) *Modules {
-	base := controller.NewBase(cfg)
-	healthUc := health.NewUsecase(db, redis, storage, publisher, mailer)
-
+// New initializes all active domain modules using the shared application context.
+func New(appCtx *app.Context) *Modules {
 	return &Modules{
-		Base:    base,
-		Health:  health.NewController(base, healthUc),
-		Docs:    docs.NewController(base),
-		Metrics: metrics.NewController(base),
+		Health:  health.Register(appCtx),
+		Docs:    docs.Register(appCtx),
+		Metrics: metrics.Register(appCtx),
 	}
 }
 

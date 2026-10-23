@@ -16,7 +16,7 @@ import (
 	"code-base-golang/internal/adapters/smtp"
 	"code-base-golang/internal/config"
 	"code-base-golang/internal/modules"
-	"code-base-golang/internal/modules/health"
+	"code-base-golang/internal/pkg/app"
 	"code-base-golang/internal/pkg/logger"
 	"code-base-golang/internal/pkg/migration"
 	"code-base-golang/internal/pkg/tracing"
@@ -106,7 +106,6 @@ func main() {
 	}
 
 	// Initialize s3 storage adapter
-	var s3Pinger health.Pinger
 	s3Adapter, err := s3.New(cfg)
 	if err != nil {
 		if cfg.AppEnv == "production" {
@@ -114,13 +113,11 @@ func main() {
 		}
 		log.Printf("[WARN] s3 connection failed: %v", err)
 	} else {
-		s3Pinger = s3Adapter
 		log.Println("s3 adapter connected successfully")
 	}
 
 	// Initialize rabbitmq adapter
 	var broker *rabbitmq.RabbitMQ
-	var brokerPinger health.Pinger
 	rmq, err := rabbitmq.New(cfg)
 	if err != nil {
 		if cfg.AppEnv == "production" {
@@ -129,7 +126,6 @@ func main() {
 		log.Printf("[WARN] rabbitmq connection failed: %v", err)
 	} else {
 		broker = rmq
-		brokerPinger = rmq
 		log.Println("rabbitmq adapter connected successfully")
 		defer func() {
 			if err := rmq.Close(); err != nil {
@@ -140,21 +136,10 @@ func main() {
 
 	// Initialize SMTP mailer adapter
 	smtpAdapter := smtp.New(cfg)
-	var smtpPinger health.Pinger
-	if smtpAdapter != nil {
-		smtpPinger = smtpAdapter
-	}
 
-	var dbPinger health.Pinger
-	if db != nil {
-		dbPinger = db
-	}
-	var rdbPinger health.Pinger
-	if rdb != nil {
-		rdbPinger = rdb
-	}
-
-	mods := modules.New(cfg, dbPinger, rdbPinger, s3Pinger, brokerPinger, smtpPinger)
+	// Build application infrastructure context and domain modules
+	appCtx := app.NewContext(cfg, db, rdb, s3Adapter, broker, smtpAdapter)
+	mods := modules.New(appCtx)
 	router := routes.NewRouter(cfg, mods, rdb)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

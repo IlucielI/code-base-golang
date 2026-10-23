@@ -18,7 +18,7 @@ func (m *mockPinger) Ping(ctx context.Context) error {
 }
 
 func TestUsecase_CheckHealth_EmptyDependencies(t *testing.T) {
-	u := health.NewUsecase(nil, nil, nil, nil, nil)
+	u := health.NewUsecase(nil)
 	status := u.CheckHealth(context.Background())
 	if status.Database != constants.IntegrationStatusDisconnected {
 		t.Errorf("expected db disconnected, got %s", status.Database)
@@ -38,13 +38,15 @@ func TestUsecase_CheckHealth_EmptyDependencies(t *testing.T) {
 }
 
 func TestUsecase_CheckHealth_Connected(t *testing.T) {
-	db := &mockPinger{err: nil}
-	rdb := &mockPinger{err: nil}
-	s3 := &mockPinger{err: nil}
-	rmq := &mockPinger{err: nil}
-	smtp := &mockPinger{err: nil}
+	pingers := map[string]health.Pinger{
+		"database": &mockPinger{err: nil},
+		"redis":    &mockPinger{err: nil},
+		"s3":       &mockPinger{err: nil},
+		"rabbitmq": &mockPinger{err: nil},
+		"smtp":     &mockPinger{err: nil},
+	}
 
-	u := health.NewUsecase(db, rdb, s3, rmq, smtp)
+	u := health.NewUsecase(pingers)
 	status := u.CheckHealth(context.Background())
 
 	if status.Database != constants.IntegrationStatusConnected {
@@ -65,13 +67,15 @@ func TestUsecase_CheckHealth_Connected(t *testing.T) {
 }
 
 func TestUsecase_CheckHealth_PingErrors(t *testing.T) {
-	db := &mockPinger{err: errors.New("db ping failed")}
-	rdb := &mockPinger{err: errors.New("redis ping failed")}
-	s3 := &mockPinger{err: errors.New("s3 ping failed")}
-	rmq := &mockPinger{err: errors.New("rmq ping failed")}
-	smtp := &mockPinger{err: errors.New("smtp ping failed")}
+	pingers := map[string]health.Pinger{
+		"database": &mockPinger{err: errors.New("db ping failed")},
+		"redis":    &mockPinger{err: errors.New("redis ping failed")},
+		"s3":       &mockPinger{err: errors.New("s3 ping failed")},
+		"rabbitmq": &mockPinger{err: errors.New("rmq ping failed")},
+		"smtp":     &mockPinger{err: errors.New("smtp ping failed")},
+	}
 
-	u := health.NewUsecase(db, rdb, s3, rmq, smtp)
+	u := health.NewUsecase(pingers)
 	status := u.CheckHealth(context.Background())
 
 	if status.Database != constants.IntegrationStatusDisconnected {

@@ -13,13 +13,19 @@ import (
 	"code-base-golang/internal/constants"
 	"code-base-golang/internal/modules"
 	"code-base-golang/internal/modules/health"
+	"code-base-golang/internal/pkg/app"
 	"code-base-golang/internal/pkg/response"
 	"code-base-golang/internal/routes"
 )
 
+func setupModules(cfg config.Config) *modules.Modules {
+	appCtx := app.NewContext(cfg, nil, nil, nil, nil, nil)
+	return modules.New(appCtx)
+}
+
 func TestRouter_HealthCheck(t *testing.T) {
 	cfg := config.Load()
-	mods := modules.New(cfg, nil, nil, nil, nil, nil)
+	mods := setupModules(cfg)
 	router := routes.NewRouter(cfg, mods)
 
 	w := httptest.NewRecorder()
@@ -70,7 +76,7 @@ func TestRouter_HealthCheck(t *testing.T) {
 
 func TestRouter_PanicRecovery(t *testing.T) {
 	cfg := config.Load()
-	mods := modules.New(cfg, nil, nil, nil, nil, nil)
+	mods := setupModules(cfg)
 	router := routes.NewRouter(cfg, mods)
 
 	// Register an endpoint that panics
@@ -121,7 +127,7 @@ func TestRouter_PanicRecovery(t *testing.T) {
 
 func TestRouter_DocsEndpoints(t *testing.T) {
 	cfg := config.Load()
-	mods := modules.New(cfg, nil, nil, nil, nil, nil)
+	mods := setupModules(cfg)
 	router := routes.NewRouter(cfg, mods)
 
 	tests := []struct {
@@ -177,7 +183,7 @@ func TestRouter_DocsEndpoints(t *testing.T) {
 func TestRouter_MetricsEndpoint(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := config.Config{}
-	mods := modules.New(cfg, nil, nil, nil, nil, nil)
+	mods := setupModules(cfg)
 	router := routes.NewRouter(cfg, mods)
 
 	w := httptest.NewRecorder()

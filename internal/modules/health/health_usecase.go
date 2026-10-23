@@ -14,56 +14,34 @@ type Pinger interface {
 
 // Usecase encapsulates business logic for health checks across system integrations.
 type Usecase struct {
-	db        Pinger
-	redis     Pinger
-	storage   Pinger
-	publisher Pinger
-	mailer    Pinger
+	pingers map[string]Pinger
 }
 
 // NewUsecase constructs a new health Usecase instance.
-func NewUsecase(db Pinger, redis Pinger, storage Pinger, publisher Pinger, mailer Pinger) *Usecase {
+func NewUsecase(pingers map[string]Pinger) *Usecase {
+	if pingers == nil {
+		pingers = make(map[string]Pinger)
+	}
 	return &Usecase{
-		db:        db,
-		redis:     redis,
-		storage:   storage,
-		publisher: publisher,
-		mailer:    mailer,
+		pingers: pingers,
 	}
 }
 
 // CheckHealth inspects the connectivity of sub-systems (database, redis, s3, rabbitmq, smtp).
 func (u *Usecase) CheckHealth(ctx context.Context) Services {
-	dbStatus := constants.IntegrationStatusConnected
-	if u.db == nil || ctxutil.RunWithTimeout(ctx, 0, u.db.Ping) != nil {
-		dbStatus = constants.IntegrationStatusDisconnected
-	}
-
-	redisStatus := constants.IntegrationStatusConnected
-	if u.redis == nil || ctxutil.RunWithTimeout(ctx, 0, u.redis.Ping) != nil {
-		redisStatus = constants.IntegrationStatusDisconnected
-	}
-
-	s3Status := constants.IntegrationStatusConnected
-	if u.storage == nil || ctxutil.RunWithTimeout(ctx, 0, u.storage.Ping) != nil {
-		s3Status = constants.IntegrationStatusDisconnected
-	}
-
-	rmqStatus := constants.IntegrationStatusConnected
-	if u.publisher == nil || ctxutil.RunWithTimeout(ctx, 0, u.publisher.Ping) != nil {
-		rmqStatus = constants.IntegrationStatusDisconnected
-	}
-
-	smtpStatus := constants.IntegrationStatusConnected
-	if u.mailer == nil || ctxutil.RunWithTimeout(ctx, 0, u.mailer.Ping) != nil {
-		smtpStatus = constants.IntegrationStatusDisconnected
+	check := func(name string) string {
+		p := u.pingers[name]
+		if p == nil || ctxutil.RunWithTimeout(ctx, 0, p.Ping) != nil {
+			return constants.IntegrationStatusDisconnected
+		}
+		return constants.IntegrationStatusConnected
 	}
 
 	return Services{
-		Database: dbStatus,
-		Redis:    redisStatus,
-		S3:       s3Status,
-		RabbitMQ: rmqStatus,
-		SMTP:     smtpStatus,
+		Database: check("database"),
+		Redis:    check("redis"),
+		S3:       check("s3"),
+		RabbitMQ: check("rabbitmq"),
+		SMTP:     check("smtp"),
 	}
 }
